@@ -1,0 +1,7 @@
+# Ignore massive game asset folders and dependencies
+Gamefiles/
+Extras/
+'External Tools'/
+node_modules/
+dist/
+*.log

@@ -1,0 +1,18 @@
+
+<!DOCTYPE html>
+<html>
+<body style="background:#222; color:white;">
+    <h1>Skip-Draw Large Width Gallery</h1>
+    <div id="gallery"></div>
+    <script>
+        const gallery = document.getElementById('gallery');
+        for(let w=100; w<=120; w++) {
+            const div = document.createElement('div');
+            div.style.display = 'inline-block';
+            div.style.margin = '10px';
+            div.innerHTML = `<div>w=${w}</div><img src="assets/sd_large/w${w}.png" style="border:1px solid white; width:300px;">`;
+            gallery.appendChild(div);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "workflow": "gsd-new-project",
+  "tech_stack": "React/Vite",
+  "directories": {
+    "tools": "tools/",
+    "web": "web/",
+    "game_files": "Gamefiles/"
+  }
+}

@@ -1,0 +1,35 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoo Tycoon Browser - Asset Test</title>
+    <style>
+        body { background: #333; color: white; font-family: sans-serif; }
+        .frame-container { display: flex; flex-wrap: wrap; gap: 10px; }
+        .frame { border: 1px solid #555; padding: 5px; text-align: center; }
+        img { image-rendering: pixelated; background: #222; }
+    </style>
+</head>
+<body>
+    <h1>African Buffalo - Male Eat East</h1>
+    <div id="frames" class="frame-container"></div>
+
+    <script>
+        const container = document.getElementById('frames');
+        for (let i = 0; i < 83; i++) {
+            const div = document.createElement('div');
+            div.className = 'frame';
+            const img = document.createElement('img');
+            img.src = `assets/test/frame_${i}.png`;
+            img.alt = `Frame ${i}`;
+            const label = document.createElement('div');
+            label.textContent = i;
+            div.appendChild(img);
+            div.appendChild(label);
+            container.appendChild(div);
+        }
+    </script>
+</body>
+</html>

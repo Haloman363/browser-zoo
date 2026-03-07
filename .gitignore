@@ -1,0 +1,26 @@
+# Game Files
+Gamefiles/
+Extras/
+External\ Tools/
+
+# Extracted Assets (Copyrighted)
+web/public/assets/
+
+# Dependencies
+node_modules/
+
+# Build Outputs
+dist/
+build/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store
