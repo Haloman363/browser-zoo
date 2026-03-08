@@ -19,3 +19,4 @@ The prototype is substantially complete and ready for further refinement or cont
 - [ ] **[UI] Build main menu screen just like Zoo Tycoon** (Medium)
 - [ ] **[Engine] Import existing game scenarios** (Medium)
 - [ ] **[Network] Add multiplayer option to host and connect with others** (Medium)
+- [ ] **[Audio] Add game music and sound effects** (Low)
