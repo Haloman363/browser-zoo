@@ -1,7 +1,7 @@
 # STATE: browser-zoo
 
-## Current Phase: Complete
-**Status**: The project has reached its primary goals. A fully-featured Zoo Tycoon simulation prototype is now available in the browser.
+## Current Phase: Phase 3: User Interface & Main Menu
+**Status**: Starting development on the game's UI and main menu, recreating the original Zoo Tycoon experience.
 
 ## Key Features Implemented
 - [x] **Universal Extraction**: A robust toolset to extract original ZT1 assets (Animals, Scenery, Fences, Staff, Guests) from `.ztd` archives.

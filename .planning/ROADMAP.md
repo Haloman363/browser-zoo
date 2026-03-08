@@ -17,4 +17,10 @@
 - [ ] [PHASE-2-04] Implement basic camera controls (pan, zoom).
 - [ ] **Success**: A scrollable isometric map with terrain and some static animal sprites.
 
-... (rest of the phases)
+## Phase 3: User Interface & Main Menu
+**Goal**: Recreate the Zoo Tycoon UI and main menu.
+- [ ] [PHASE-3-01] Design and implement the Main Menu screen with interactive buttons and background.
+- [ ] [PHASE-3-02] Create the primary in-game HUD (toolbars, stats bar, selection panels).
+- [ ] [PHASE-3-03] Implement UI sound effects and custom mouse cursors.
+- [ ] [PHASE-3-04] Integrate the UI with the core rendering engine.
+- [ ] **Success**: A fully functional main menu and game HUD using original assets.
