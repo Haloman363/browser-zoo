@@ -13,3 +13,6 @@
 
 ## Final Notes
 The prototype is substantially complete and ready for further refinement or content expansion.
+
+## Open Todos
+- [ ] **[UI] Build interface just like Zoo Tycoon with extracted assets** (Medium)
