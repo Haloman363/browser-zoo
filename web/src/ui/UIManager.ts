@@ -176,6 +176,16 @@ export class UIManager {
         });
     }
 
+    public hide() {
+        this.container.style.display = 'none';
+        this.cashHud.style.display = 'none';
+    }
+
+    public show() {
+        this.container.style.display = 'block';
+        this.cashHud.style.display = 'block';
+    }
+
     public setCash(amount: number) {
         this.cashHud.innerText = `$${amount.toLocaleString()}`;
     }

@@ -19,7 +19,7 @@
 
 ## Phase 3: User Interface & Main Menu
 **Goal**: Recreate the Zoo Tycoon UI and main menu.
-- [ ] [PHASE-3-01] Design and implement the Main Menu screen with interactive buttons and background.
+- [x] [PHASE-3-01] Design and implement the Main Menu screen with interactive buttons and background.
 - [ ] [PHASE-3-02] Create the primary in-game HUD (toolbars, stats bar, selection panels).
 - [ ] [PHASE-3-03] Implement UI sound effects and custom mouse cursors.
 - [ ] [PHASE-3-04] Integrate the UI with the core rendering engine.

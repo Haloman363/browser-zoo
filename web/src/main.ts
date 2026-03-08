@@ -11,6 +11,8 @@ import { FenceManager } from './core/FenceManager';
 import { EconomyManager } from './core/EconomyManager';
 import { AudioManager } from './core/AudioManager';
 import { UIManager } from './ui/UIManager';
+import { MainMenu } from './ui/MainMenu';
+import { GameState, StateManager } from './core/GameState';
 import { StatusWindow } from './ui/StatusWindow';
 import { EditorManager } from './core/EditorManager';
 import { Pathfinder } from './core/Pathfinder';
@@ -61,7 +63,28 @@ const pathfinder = new Pathfinder(75, 75);
 const terrainManager = new TerrainManager(75, 75);
 const pathManager = new PathManager(75, 75);
 const economyManager = new EconomyManager();
+const stateManager = new StateManager();
+const mainMenu = new MainMenu();
 const uiManager = new UIManager();
+
+// Hide game UI initially
+uiManager.hide();
+status.style.display = 'none';
+
+mainMenu.onPlay((mode) => {
+    console.log(`Starting game in ${mode} mode...`);
+    mainMenu.hide();
+    uiManager.show();
+    status.style.display = 'block';
+    stateManager.setState(GameState.Playing);
+    
+    // Play background music (loop)
+    const audio = new Audio('./assets/sounds/mainmenu.wav');
+    audio.loop = true;
+    audio.volume = 0.5;
+    audio.play();
+});
+
 const audioManager = new AudioManager(camera);
 const statusWindow = new StatusWindow();
 const gridRenderer = new GridRenderer(scene, terrainManager, pathManager);
@@ -104,6 +127,7 @@ uiManager.onSelect((type, id) => {
 });
 
 async function initGame() {
+    status.style.display = 'block';
     await editorManager.loadZoo();
     await guestManager.init();
     await staffManager.init();
@@ -154,6 +178,8 @@ window.addEventListener('click', () => {
 
 function animate(time: number) {
     requestAnimationFrame(animate);
+    if (stateManager.getState() !== GameState.Playing) return;
+
     cameraControls.update();
     raycaster.setFromCamera(mouse, camera);
     const hovered = gridRenderer.updateHover(raycaster);
