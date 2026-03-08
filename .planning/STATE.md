@@ -17,3 +17,4 @@ The prototype is substantially complete and ready for further refinement or cont
 ## Open Todos
 - [ ] **[UI] Build interface just like Zoo Tycoon with extracted assets** (Medium)
 - [ ] **[UI] Build main menu screen just like Zoo Tycoon** (Medium)
+- [ ] **[Engine] Import existing game scenarios** (Medium)
