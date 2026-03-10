@@ -10,7 +10,7 @@ export class SceneryManager {
     private textureCache: Map<string, THREE.Texture> = new Map();
     private loadingPromises: Map<string, Promise<THREE.Texture>> = new Map();
 
-    constructor(private scene: THREE.Scene) {}
+    constructor(public scene: THREE.Scene) {}
 
     public async loadObject(id: string, view: string = 'se'): Promise<THREE.Texture> {
         const cacheKey = `${id}:${view}`;
@@ -59,5 +59,10 @@ export class SceneryInstance {
             this.sprite.position.set(x, y + (img.height * scale) / 2, z);
             this.sprite.renderOrder = Math.floor(z * 100);
         }
+    }
+
+    public destroy(scene: THREE.Scene) {
+        scene.remove(this.sprite);
+        this.sprite.material.dispose();
     }
 }

@@ -1,6 +1,7 @@
-
 import * as THREE from 'three';
 import { Pathfinder, Tile, BlockedCheck } from '../core/Pathfinder';
+import { AudioManager } from '../core/AudioManager';
+import { VisualEffectManager } from '../core/VisualEffectManager';
 
 export interface AnimalMetadata {
     id: string;
@@ -20,13 +21,19 @@ export class AnimalManager {
     private loadingPromises: Map<string, Promise<void>> = new Map();
     private pathfinder: Pathfinder = new Pathfinder(75, 75);
 
-    constructor(private scene: THREE.Scene) {}
+    constructor(public scene: THREE.Scene, private audioManager?: AudioManager) {}
 
     async loadAnimal(id: string, animation: string = 'walk'): Promise<void> {
         const cacheKey = `${id}:${animation}`;
         if (this.loadingPromises.has(cacheKey)) return this.loadingPromises.get(cacheKey);
         
         const promise = (async () => {
+            // Load sounds if not already loaded
+            if (this.audioManager) {
+                const filenames = [1, 2, 3, 4, 5].map(n => `${id}${n}.wav`);
+                await this.audioManager.loadAnimalSounds(id, filenames);
+            }
+
             const directions = ['n', 'ne', 'e', 'se', 's'];
             const anims: Record<string, AnimationState> = {};
             const texLoader = new THREE.TextureLoader();
@@ -79,16 +86,24 @@ export class AnimalManager {
         if (!anims) return null;
         return new AnimalInstance(id, anims, this.scene, this.pathfinder, startTile);
     }
+
+    public reset() {
+        // Handled by EditorManager
+    }
 }
 
 export class AnimalInstance {
     public sprite: THREE.Sprite;
+    public shadow: THREE.Mesh;
     public happiness: number = 60;
+    public hunger: number = 0;
+    public energy: number = 100;
+    public health: number = 100;
+    public currentTile: Tile;
+
     private currentDir: string = 'S';
     private currentFrame: number = 0;
     private lastFrameTime: number = 0;
-    
-    private currentTile: Tile;
     private path: Tile[] = [];
     private moveSpeed: number = 0.05;
     private lerpAlpha: number = 0;
@@ -96,14 +111,26 @@ export class AnimalInstance {
     constructor(
         public id: string, 
         private animations: Record<string, AnimationState>,
-        scene: THREE.Scene,
+        private scene: THREE.Scene,
         private pathfinder: Pathfinder,
         startTile: Tile = { x: 37, y: 37 }
     ) {
         this.currentTile = { ...startTile };
         const startMat = this.animations[this.currentDir]?.materials[0] || new THREE.SpriteMaterial({ color: 0xff0000 });
         this.sprite = new THREE.Sprite(startMat);
-        scene.add(this.sprite);
+        this.scene.add(this.sprite);
+
+        // Add shadow
+        const shadowGeo = new THREE.PlaneGeometry(2, 1);
+        const shadowMat = new THREE.MeshBasicMaterial({ 
+            map: VisualEffectManager.getShadowTexture(), 
+            transparent: true, 
+            depthWrite: false 
+        });
+        this.shadow = new THREE.Mesh(shadowGeo, shadowMat);
+        this.shadow.rotation.x = -Math.PI / 2;
+        this.shadow.position.y = 0.01;
+        this.scene.add(this.shadow);
     }
 
     setPosition(x: number, y: number, z: number) {
@@ -113,13 +140,41 @@ export class AnimalInstance {
             this.sprite.scale.set(img.width * scale, img.height * scale, 1);
             this.sprite.position.set(x, y + (img.height * scale) / 2, z);
             this.sprite.renderOrder = Math.floor(z * 100); 
+            
+            // Sync shadow
+            this.shadow.position.set(x, 0.01, z);
+            this.shadow.scale.set(img.width * scale * 0.05, img.width * scale * 0.025, 1);
         } else {
             this.sprite.position.set(x, y, z);
+            this.shadow.position.set(x, 0.01, z);
         }
     }
 
     public setHappiness(val: number) {
         this.happiness = Math.max(0, Math.min(100, val));
+    }
+
+    public feed() {
+        this.hunger = 0;
+        this.happiness = Math.min(100, this.happiness + 10);
+    }
+
+    public heal() {
+        this.health = 100;
+        this.happiness = Math.min(100, this.happiness + 20);
+    }
+
+    public rest() {
+        this.energy = 100;
+    }
+
+    public destroy() {
+        this.scene.remove(this.sprite);
+        this.scene.remove(this.shadow);
+        if (this.sprite.material.map) this.sprite.material.map.dispose();
+        this.sprite.material.dispose();
+        this.shadow.geometry.dispose();
+        (this.shadow.material as THREE.Material).dispose();
     }
 
     setDirection(dir: string) {
@@ -153,11 +208,17 @@ export class AnimalInstance {
         }
     }
 
-    update(time: number, isEdgeBlocked: BlockedCheck, getExhibitAt: (x: number, y: number) => number) {
+    update(time: number, isEdgeBlocked: BlockedCheck, getExhibitAt: (x: number, y: number) => number, audioManager?: AudioManager) {
         const anim = this.animations[this.currentDir];
         if (!anim) return;
 
-        // 1. Movement Logic
+        // 1. Update Needs
+        this.hunger += 0.005;
+        this.energy -= 0.003;
+        if (this.hunger > 80) this.happiness -= 0.01;
+        if (this.energy < 20) this.happiness -= 0.005;
+
+        // 2. Movement Logic
         if (this.path.length > 0) {
             const nextTile = this.path[0];
             this.updateDirection(this.currentTile, nextTile);
@@ -176,18 +237,22 @@ export class AnimalInstance {
             this.setPosition(x, 0, z);
         } else {
             // Idle/Wander Logic
-            if (Math.random() < 0.005) { 
+            if (Math.random() < 0.005 && this.energy > 30) { 
                 const tx = Math.floor(Math.max(0, Math.min(74, this.currentTile.x + (Math.random() * 10 - 5))));
                 const ty = Math.floor(Math.max(0, Math.min(74, this.currentTile.y + (Math.random() * 10 - 5))));
                 
-                // Only wander if the target is in the same exhibit
                 if (getExhibitAt(tx, ty) === getExhibitAt(this.currentTile.x, this.currentTile.y)) {
                     this.walkTo({ x: tx, y: ty }, isEdgeBlocked);
                 }
             }
         }
 
-        // 2. Animation Logic
+        // 3. Audio Logic (Random Sounds)
+        if (audioManager && Math.random() < 0.001) {
+            audioManager.playAnimalSound(this.id, this.sprite.position);
+        }
+
+        // 4. Animation Logic
         if (time - this.lastFrameTime > anim.frameDuration) {
             this.currentFrame = (this.currentFrame + 1) % anim.materials.length;
             this.sprite.material = anim.materials[this.currentFrame];

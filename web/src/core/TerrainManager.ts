@@ -40,6 +40,11 @@ export class TerrainManager {
         this.onUpdateCallback = callback;
     }
 
+    public reset() {
+        this.gridData.fill(TerrainType.Grass);
+        this.onUpdateCallback();
+    }
+
     public serialize() {
         return Array.from(this.gridData);
     }

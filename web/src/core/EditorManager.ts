@@ -7,11 +7,13 @@ import { PathManager, PathType } from './PathManager';
 import { SceneryManager, SceneryInstance } from './SceneryManager';
 import { FenceManager } from './FenceManager';
 import { ExhibitManager } from './ExhibitManager';
-import { StaffManager } from './StaffManager';
+import { StaffManager, KeeperInstance } from './StaffManager';
 import { EconomyManager } from './EconomyManager';
 import { SatisfactionManager } from './SatisfactionManager';
 import { UIManager } from '../ui/UIManager';
 import { PersistenceManager, ZooSaveData } from './PersistenceManager';
+import { ZooMapParser, ParsedMap } from './ZooMapParser';
+import { AudioManager } from './AudioManager';
 
 export type EditorMode = 'select' | 'place_animal' | 'paint_terrain' | 'place_scenery' | 'place_fence' | 'paint_path' | 'hire_staff';
 
@@ -39,6 +41,7 @@ export class EditorManager {
     private persistence: PersistenceManager = new PersistenceManager();
     public exhibitManager: ExhibitManager;
     private satisfactionManager: SatisfactionManager = new SatisfactionManager();
+    private onModeChangeCallback: (mode: EditorMode) => void = () => {};
 
     constructor(
         private animalManager: AnimalManager,
@@ -60,6 +63,46 @@ export class EditorManager {
 
     public setMode(mode: EditorMode) {
         this.currentMode = mode;
+        this.onModeChangeCallback(mode);
+    }
+
+    public onModeChange(callback: (mode: EditorMode) => void) {
+        this.onModeChangeCallback = callback;
+    }
+
+    public resetZoo(startingCash: number = 50000) {
+        this.animals.forEach(a => a.instance.destroy());
+        this.animals = [];
+        
+        this.scenery.forEach(s => s.instance.destroy(this.animalManager.scene));
+        this.scenery = [];
+        
+        this.fenceManager.reset();
+        this.terrainManager.reset();
+        this.pathManager.reset();
+        
+        this.economyManager.setCash(startingCash);
+        this.setMode('select');
+    }
+
+    public async loadMap(map: ParsedMap, startingCash: number = 25000) {
+        this.resetZoo(startingCash);
+        this.terrainManager.deserialize(map.terrain);
+        if (map.paths) this.pathManager.deserialize(map.paths);
+        
+        for (const ent of map.entities) {
+            try {
+                if (ent.type === 'animal') {
+                    await this.placeAnimal(ent.id, ent.x, ent.y);
+                } else if (ent.type === 'scenery') {
+                    await this.placeScenery(ent.id, ent.x, ent.y);
+                } else if (ent.type === 'fence') {
+                    // Just pick a side for now since parsing edge sides is hard
+                    await this.fenceManager.placeFence(ent.x, ent.y, 'n', ent.id);
+                }
+            } catch(e) { console.warn(`Failed to place ${ent.id}:`, e); }
+        }
+        this.exhibitManager.updateExhibits();
     }
 
     public selectAnimalForPlacement(id: string) {
@@ -146,11 +189,13 @@ export class EditorManager {
                     this.uiManager.showError('Insufficient funds for Fence!');
                 }
             }
-        } else if (this.currentMode === 'hire_staff' && this.currentSelectedId === 'keeper') {
-            if (this.economyManager.subtractCash(1000)) { // Hiring cost
-                this.staffManager.hireKeeper(tile.x, tile.y);
+        } else if (this.currentMode === 'hire_staff' && this.currentSelectedId) {
+            const costMap: Record<string, number> = { 'keeper': 800, 'maint': 500, 'guide': 600 };
+            const hireCost = costMap[this.currentSelectedId] || 500;
+            if (this.economyManager.subtractCash(hireCost, 'salaries')) {
+                this.staffManager.hire(this.currentSelectedId as any, tile.x, tile.y);
             } else {
-                this.uiManager.showError('Insufficient funds for Keeper!');
+                this.uiManager.showError(`Insufficient funds for ${this.currentSelectedId}!`);
             }
         }
     }
@@ -189,16 +234,29 @@ export class EditorManager {
             };
         }
 
-        const keeper = this.staffManager.keepers.find(k => {
-            const ktile = k.currentTile;
+        const staff = this.staffManager.staff.find(s => {
+            const ktile = s.currentTile;
             return ktile && ktile.x === tile.x && ktile.y === tile.y;
         });
 
-        if (keeper) {
+        if (staff) {
+            let name = "STAFF";
+            let thought = "Doing my job.";
+            if (staff instanceof KeeperInstance) {
+                name = "ZOO KEEPER";
+                thought = "Just making sure the animals are happy.";
+            } else if (staff.constructor.name === 'MaintInstance') {
+                name = "MAINTENANCE WORKER";
+                thought = "Keeping the zoo clean and tidy.";
+            } else if (staff.constructor.name === 'GuideInstance') {
+                name = "TOUR GUIDE";
+                thought = "Welcome to our wonderful zoo!";
+            }
+            
             return {
-                name: "ZOO KEEPER",
+                name,
                 stats: { 'Status': 'Working' },
-                thoughts: ["Just making sure the animals are happy."]
+                thoughts: [thought]
             };
         }
 
@@ -280,6 +338,11 @@ export class EditorManager {
         return this.scenery.map(s => ({ id: s.id, x: s.tileX, y: s.tileY }));
     }
 
+    public getBuildings() {
+        // For now, treat all scenery as potential buildings for guests
+        return this.scenery.map(s => ({ id: s.id, tileX: s.tileX, tileY: s.tileY }));
+    }
+
     public getFenceData() {
         return this.fenceManager.serialize();
     }
@@ -293,41 +356,39 @@ export class EditorManager {
     }
 
     public saveZoo() {
-        const saveData = {
-            getAnimalData: () => this.getAnimalData(),
-            getSceneryData: () => this.getSceneryData(),
-            getFenceData: () => this.getFenceData(),
-            getPathData: () => this.getPathData(),
-            getStaffData: () => this.getStaffData()
-        };
-        this.persistence.save(this.terrainManager, saveData);
+        this.saveZooNamed('autosave');
+    }
+
+    public saveZooNamed(name: string) {
+        this.persistence.save(name, this.terrainManager, this, this.economyManager.getCash());
     }
 
     public async loadZoo() {
-        const data = this.persistence.load();
-        if (!data) return;
-        console.log('[EditorManager] Loading saved zoo...');
+        // Default to autosave on start
+        const data = this.persistence.load('autosave');
+        if (data) await this.loadZooData(data);
+    }
+
+    public async loadZooData(data: ZooSaveData) {
+        console.log(`[EditorManager] Loading zoo '${data.name}'...`);
+        this.resetZoo(data.cash || 50000);
         this.terrainManager.deserialize(data.terrain);
         if (data.paths) this.pathManager.deserialize(data.paths);
+        
         for (const s of data.scenery) await this.placeScenery(s.id, s.x, s.y);
         if (data.fences) {
             for (const f of data.fences) await this.fenceManager.placeFence(f.x, f.y, f.side as any, f.id);
             this.exhibitManager.updateExhibits();
         }
-        if ((data as any).staff) {
-            for (const st of (data as any).staff) {
-                if (st.id === 'keeper') this.staffManager.hireKeeper(st.x, st.y);
-            }
-        }
         for (const a of data.animals) await this.placeAnimal(a.id, a.tileX, a.tileY);
     }
 
-    public update(time: number) {
+    public update(time: number, audioManager?: AudioManager) {
         const blockedCheck = (x: number, y: number, side: 'n' | 'e' | 's' | 'w') => 
             this.fenceManager.isEdgeBlocked(x, y, side);
         const exhibitCheck = (x: number, y: number) => 
             this.exhibitManager.getExhibitAt(x, y);
-        this.animals.forEach(a => a.instance.update(time, blockedCheck, exhibitCheck));
+        this.animals.forEach(a => a.instance.update(time, blockedCheck, exhibitCheck, audioManager));
         this.staffManager.update(time, blockedCheck, this);
     }
 }

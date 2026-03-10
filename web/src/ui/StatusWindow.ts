@@ -1,57 +1,158 @@
 export class StatusWindow {
     private container: HTMLElement;
+    private nameDisplay: HTMLElement;
+    private thoughtsDisplay: HTMLElement;
+    
+    private happinessMeter: HTMLElement;
+    private hungerMeter: HTMLElement;
+    private healthMeter: HTMLElement;
+    private habitatMeter: HTMLElement;
 
     constructor() {
         this.container = document.createElement('div');
-        this.container.id = 'status-window';
+        this.container.id = 'entity-info-panel';
         this.applyStyles();
+        
+        const background = document.createElement('div');
+        Object.assign(background.style, {
+            width: '226px',
+            height: '212px',
+            background: "url('./assets/ui/ainfopan/N_000.png') no-repeat",
+            position: 'relative'
+        });
+
+        // Title
+        const title = document.createElement('div');
+        Object.assign(title.style, {
+            position: 'absolute',
+            top: '3px',
+            left: '75px',
+            width: '125px',
+            color: '#FFE4AD',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            fontFamily: 'monospace'
+        });
+        title.innerText = 'ANIMAL INFO';
+        background.appendChild(title);
+
+        // Name
+        this.nameDisplay = document.createElement('div');
+        Object.assign(this.nameDisplay.style, {
+            position: 'absolute',
+            top: '27px',
+            left: '71px',
+            width: '141px',
+            color: '#FFDA5A',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            fontFamily: 'monospace'
+        });
+        background.appendChild(this.nameDisplay);
+
+        // Close Button
+        const closeBtn = document.createElement('div');
+        Object.assign(closeBtn.style, {
+            position: 'absolute',
+            top: '1px',
+            right: '13px',
+            width: '16px',
+            height: '16px',
+            background: "url('./assets/ui/close/N_000.png') no-repeat",
+            cursor: 'pointer'
+        });
+        closeBtn.onclick = () => this.hide();
+        background.appendChild(closeBtn);
+
+        // Meters
+        this.happinessMeter = this.createMeter(background, 91, 'ichappy');
+        this.hungerMeter = this.createMeter(background, 121, 'icfood');
+        this.healthMeter = this.createMeter(background, 154, 'ichealth');
+        this.habitatMeter = this.createMeter(background, 183, 'ichabtat');
+
+        // Thoughts (simplified for now)
+        this.thoughtsDisplay = document.createElement('div');
+        Object.assign(this.thoughtsDisplay.style, {
+            position: 'absolute',
+            top: '55px',
+            left: '20px',
+            width: '180px',
+            height: '30px',
+            color: '#fff',
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            overflowY: 'auto'
+        });
+        background.appendChild(this.thoughtsDisplay);
+
+        this.container.appendChild(background);
         document.body.appendChild(this.container);
         this.hide();
+    }
+
+    private createMeter(parent: HTMLElement, y: number, icon: string): HTMLElement {
+        const iconEl = document.createElement('div');
+        Object.assign(iconEl.style, {
+            position: 'absolute',
+            left: '25px',
+            top: `${y - 9}px`, // Adjusted based on .lyt
+            width: '32px',
+            height: '32px',
+            background: `url('./assets/ui/${icon}/N_000.png') no-repeat`
+        });
+        parent.appendChild(iconEl);
+
+        const bg = document.createElement('div');
+        Object.assign(bg.style, {
+            position: 'absolute',
+            left: '68px',
+            top: `${y}px`,
+            width: '114px',
+            height: '14px',
+            background: "url('./assets/ui/blankmtr/N_000.png') no-repeat"
+        });
+
+        const fill = document.createElement('div');
+        Object.assign(fill.style, {
+            height: '100%',
+            width: '50%',
+            transition: 'width 0.3s, background-image 0.3s'
+        });
+        bg.appendChild(fill);
+        parent.appendChild(bg);
+        return fill;
+    }
+
+    private updateMeter(fill: HTMLElement, percent: number) {
+        percent = Math.max(0, Math.min(100, percent));
+        fill.style.width = `${percent}%`;
+        let asset = 'statg';
+        if (percent < 25) asset = 'statr';
+        else if (percent < 50) asset = 'staty';
+        fill.style.backgroundImage = `url('./assets/ui/${asset}/N_000.png')`;
     }
 
     private applyStyles() {
         Object.assign(this.container.style, {
             position: 'absolute',
-            left: '20px',
-            top: '20px',
-            width: '250px',
-            background: 'rgba(0, 0, 0, 0.85)',
-            color: 'white',
-            padding: '20px',
-            fontFamily: 'monospace',
-            borderRadius: '10px',
-            border: '2px solid #555',
-            zIndex: '1500',
-            pointerEvents: 'auto',
-            display: 'none',
-            boxShadow: '0 0 15px rgba(0,0,0,0.5)'
+            bottom: '120px', // Above bottom bar
+            right: '20px',
+            zIndex: '3000',
+            pointerEvents: 'auto'
         });
     }
 
-    public show(title: string, stats: Record<string, any>, thoughts: string[]) {
-        let statsHtml = '';
-        for (const [key, val] of Object.entries(stats)) {
-            statsHtml += `<div style="margin-bottom: 5px;"><span style="color: #aaa;">${key}:</span> ${val}</div>`;
-        }
-
-        let thoughtsHtml = thoughts.length > 0 
-            ? thoughts.map(t => `<div style="font-style: italic; margin-top: 5px; color: #00ff00;">"${t}"</div>`).join('')
-            : '<div style="color: #666; margin-top: 5px;">No thoughts...</div>';
-
-        this.container.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 10px;">
-                <span style="font-weight: bold; font-size: 18px;">${title}</span>
-                <span id="close-status" style="cursor: pointer; color: #ff4444;">[X]</span>
-            </div>
-            <div id="stats-area">${statsHtml}</div>
-            <div style="margin-top: 15px; border-top: 1px solid #444; padding-top: 10px;">
-                <div style="font-size: 12px; color: #888; margin-bottom: 5px;">THOUGHTS</div>
-                ${thoughtsHtml}
-            </div>
-        `;
-
+    public show(name: string, stats: any, thoughts: string[]) {
+        this.nameDisplay.innerText = name.toUpperCase();
+        this.thoughtsDisplay.innerText = thoughts[0] || "Doing fine.";
+        
+        this.updateMeter(this.happinessMeter, stats.happiness || 50);
+        this.updateMeter(this.hungerMeter, stats.hunger || 50);
+        this.updateMeter(this.healthMeter, stats.health || 50);
+        this.updateMeter(this.habitatMeter, stats.suitability || 50);
+        
         this.container.style.display = 'block';
-        this.container.querySelector('#close-status')!.addEventListener('click', () => this.hide());
     }
 
     public hide() {

@@ -44,6 +44,11 @@ export class PathManager {
         this.onUpdateCallback = callback;
     }
 
+    public reset() {
+        this.gridData.fill(PathType.None);
+        this.onUpdateCallback();
+    }
+
     public serialize() {
         return Array.from(this.gridData);
     }

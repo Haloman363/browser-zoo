@@ -1,165 +1,61 @@
+import { Catalog, CatalogItem } from './Catalog';
+
 export type BrushType = 'animal' | 'terrain' | 'scenery' | 'fence' | 'path' | 'staff';
 
 export class UIManager {
-    private container: HTMLElement;
+    private catalog: Catalog;
     private cashHud: HTMLElement;
-    private animalList: HTMLElement;
-    private terrainList: HTMLElement;
-    private sceneryList: HTMLElement;
-    private fenceList: HTMLElement;
-    private pathList: HTMLElement;
-    private staffList: HTMLElement;
     private currentSelectedId: string | null = null;
     private currentBrushType: BrushType = 'animal';
     private onSelectCallback: (type: BrushType, id: string) => void = () => {};
 
-    constructor() {
-        this.container = document.createElement('div');
-        this.container.id = 'ui-container';
-        this.applyStyles();
-        document.body.appendChild(this.container);
+    private animalItems: CatalogItem[] = [];
+    private sceneryItems: CatalogItem[] = [];
+    private fenceItems: CatalogItem[] = [];
+    private staffItems: CatalogItem[] = [];
+    private terrainItems: CatalogItem[] = [];
 
+    constructor() {
+        this.catalog = new Catalog();
         this.cashHud = document.createElement('div');
         this.applyHudStyles();
         document.body.appendChild(this.cashHud);
 
-        this.container.innerHTML = `
-            <div style="margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #555; padding-bottom: 5px;">
-                Zoo Editor
-            </div>
-            <div style="font-size: 12px; color: #888; margin-top: 10px;">ANIMALS ($500)</div>
-            <div id="animal-list"></div>
-            
-            <div style="font-size: 12px; color: #888; margin-top: 15px;">SCENERY ($100)</div>
-            <div id="scenery-list"></div>
-
-            <div style="font-size: 12px; color: #888; margin-top: 15px;">FENCES ($50)</div>
-            <div id="fence-list"></div>
-
-            <div style="font-size: 12px; color: #888; margin-top: 15px;">PATHS ($20)</div>
-            <div id="path-list"></div>
-
-            <div style="font-size: 12px; color: #888; margin-top: 15px;">STAFF ($1000)</div>
-            <div id="staff-list"></div>
-
-            <div style="font-size: 12px; color: #888; margin-top: 15px;">TERRAIN ($10)</div>
-            <div id="terrain-list"></div>
-
-            <div style="margin-top: 15px; font-size: 11px; color: #666;">
-                WASD to pan<br>
-                Scroll to zoom
-            </div>
-        `;
-
-        this.animalList = this.container.querySelector('#animal-list')!;
-        this.sceneryList = this.container.querySelector('#scenery-list')!;
-        this.fenceList = this.container.querySelector('#fence-list')!;
-        this.pathList = this.container.querySelector('#path-list')!;
-        this.staffList = this.container.querySelector('#staff-list')!;
-        this.terrainList = this.container.querySelector('#terrain-list')!;
+        this.initData();
         
-        this.initTerrainList();
-        this.initSceneryList();
-        this.initFenceList();
-        this.initPathList();
-        this.initStaffList();
-    }
-
-    private initTerrainList() {
-        const types = ['Grass', 'Sand', 'Dirt', 'Water'];
-        types.forEach(name => {
-            const btn = this.createButton(name, () => {
-                this.selectItem('terrain', name);
-                this.onSelectCallback('terrain', name);
-            });
-            this.terrainList.appendChild(btn);
+        this.catalog.onSelect((id) => {
+            this.selectItem(this.currentBrushType, id);
+            this.onSelectCallback(this.currentBrushType, id);
         });
     }
 
-    private initSceneryList() {
-        const types = ['baobob', 'acacia', 'bamboo', 'bench', 'birch', 'cherry'];
-        types.forEach(name => {
-            const btn = this.createButton(name, () => {
-                this.selectItem('scenery', name);
-                this.onSelectCallback('scenery', name);
-            });
-            this.sceneryList.appendChild(btn);
-        });
-    }
+    private initData() {
+        // Placeholder data initialization
+        // In a real app, this would be loaded from metadata.json files
+        this.terrainItems = [
+            { id: 'Grass', name: 'Grass', cost: 10, iconUrl: '' },
+            { id: 'Sand', name: 'Sand', cost: 10, iconUrl: '' },
+            { id: 'Dirt', name: 'Dirt', cost: 10, iconUrl: '' },
+            { id: 'Water', name: 'Water', cost: 10, iconUrl: '' }
+        ];
 
-    private initFenceList() {
-        const types = ['bricklow', 'castiron', 'chaincon'];
-        types.forEach(name => {
-            const btn = this.createButton(name, () => {
-                this.selectItem('fence', name);
-                this.onSelectCallback('fence', name);
-            });
-            this.fenceList.appendChild(btn);
-        });
-    }
+        this.sceneryItems = ['baobob', 'acacia', 'bamboo', 'bench', 'birch', 'cherry'].map(id => ({
+            id, name: id, cost: 100, iconUrl: ''
+        }));
 
-    private initPathList() {
-        const types = ['Asphalt', 'Brick', 'DirtPath'];
-        types.forEach(name => {
-            const btn = this.createButton(name, () => {
-                this.selectItem('path', name);
-                this.onSelectCallback('path', name);
-            });
-            this.pathList.appendChild(btn);
-        });
-    }
+        this.fenceItems = ['bricklow', 'castiron', 'chaincon'].map(id => ({
+            id, name: id, cost: 50, iconUrl: ''
+        }));
 
-    private initStaffList() {
-        const types = ['keeper'];
-        types.forEach(name => {
-            const btn = this.createButton(`Hire ${name}`, () => {
-                this.selectItem('staff', name);
-                this.onSelectCallback('staff', name);
-            });
-            this.staffList.appendChild(btn);
-        });
-    }
-
-    private createButton(text: string, onClick: () => void): HTMLElement {
-        const btn = document.createElement('div');
-        btn.innerText = text;
-        Object.assign(btn.style, {
-            padding: '5px',
-            margin: '2px 0',
-            background: '#333',
-            cursor: 'pointer',
-            borderRadius: '3px',
-            textAlign: 'center',
-            fontSize: '12px'
-        });
-        btn.onmouseover = () => btn.style.background = '#444';
-        btn.onmouseout = () => {
-            if (this.currentSelectedId === text || this.currentSelectedId === text.replace('Hire ', '')) btn.style.background = '#555';
-            else btn.style.background = '#333';
-        };
-        btn.onclick = onClick;
-        return btn;
-    }
-
-    private applyStyles() {
-        Object.assign(this.container.style, {
-            position: 'absolute',
-            right: '20px',
-            top: '20px',
-            width: '180px',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-            background: 'rgba(0, 0, 0, 0.8)',
-            color: 'white',
-            padding: '15px',
-            fontFamily: 'monospace',
-            borderRadius: '5px',
-            border: '1px solid #444',
-            zIndex: '1000'
-        });
+        this.staffItems = [
+            { id: 'keeper', name: 'Zoo Keeper', cost: 800, iconUrl: './assets/ui/icons/keeper.png' },
+            { id: 'maint', name: 'Maintenance Worker', cost: 500, iconUrl: './assets/ui/icons/maint.png' },
+            { id: 'guide', name: 'Tour Guide', cost: 600, iconUrl: './assets/ui/icons/guide.png' }
+        ];
     }
 
     private applyHudStyles() {
+        // Old Hud styles (will eventually be replaced by HUD.ts logic)
         Object.assign(this.cashHud.style, {
             position: 'absolute',
             left: '20px',
@@ -172,42 +68,75 @@ export class UIManager {
             fontWeight: 'bold',
             borderRadius: '5px',
             border: '2px solid #00aa00',
-            zIndex: '1000'
+            zIndex: '1000',
+            display: 'none' // Hide by default
         });
-    }
-
-    public hide() {
-        this.container.style.display = 'none';
-        this.cashHud.style.display = 'none';
-    }
-
-    public show() {
-        this.container.style.display = 'block';
-        this.cashHud.style.display = 'block';
     }
 
     public setCash(amount: number) {
         this.cashHud.innerText = `$${amount.toLocaleString()}`;
     }
 
-    public showError(msg: string) {
-        const err = document.createElement('div');
-        err.innerText = msg;
-        Object.assign(err.style, {
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'rgba(255, 0, 0, 0.8)',
-            color: 'white',
-            padding: '20px',
-            borderRadius: '10px',
-            zIndex: '2000',
-            pointerEvents: 'none',
-            fontFamily: 'monospace'
-        });
-        document.body.appendChild(err);
-        setTimeout(() => err.remove(), 2000);
+    public setMode(mode: string) {
+        this.setCursor(mode);
+    }
+
+    private setCursor(mode: string) {
+        let cursor = 'pointer';
+        switch (mode) {
+            case 'animal':
+            case 'scenery':
+            case 'fence':
+            case 'staff':
+                cursor = `url('./assets/ui/grabber/grabber.png'), auto`;
+                break;
+            case 'terrain':
+                cursor = `url('./assets/ui/paint/paint.png'), auto`;
+                break;
+            case 'bulldoze':
+                cursor = `url('./assets/ui/bulldoze/bulldoze.png'), auto`;
+                break;
+            case 'select':
+            default:
+                cursor = `url('./assets/ui/hand/hand.png'), auto`;
+                break;
+        }
+        document.body.style.cursor = cursor;
+    }
+
+    public showCategory(type: BrushType) {
+        this.currentBrushType = type;
+        this.catalog.setTitle(type);
+        this.setCursor(type);
+        
+        switch (type) {
+            case 'animal':
+                this.catalog.setItems(this.animalItems);
+                break;
+            case 'scenery':
+                this.catalog.setItems(this.sceneryItems);
+                break;
+            case 'fence':
+                this.catalog.setItems(this.fenceItems);
+                break;
+            case 'staff':
+                this.catalog.setItems(this.staffItems);
+                break;
+            case 'terrain':
+                this.catalog.setItems(this.terrainItems);
+                break;
+        }
+        this.catalog.show();
+    }
+
+    public hide() {
+        this.catalog.hide();
+        this.cashHud.style.display = 'none';
+    }
+
+    public show() {
+        // Just show cash hud, catalog shown via showCategory
+        this.cashHud.style.display = 'block';
     }
 
     public onSelect(callback: (type: BrushType, id: string) => void) {
@@ -215,29 +144,16 @@ export class UIManager {
     }
 
     public updateAnimalList(animals: string[]) {
-        this.animalList.innerHTML = '';
-        animals.forEach(id => {
-            const btn = this.createButton(id, () => {
-                this.selectItem('animal', id);
-                this.onSelectCallback('animal', id);
-            });
-            this.animalList.appendChild(btn);
-        });
+        this.animalItems = animals.map(id => ({
+            id,
+            name: id,
+            cost: 500,
+            iconUrl: `./assets/ui/icons/${id}.png`
+        }));
     }
 
     private selectItem(type: BrushType, id: string) {
         this.currentSelectedId = id;
         this.currentBrushType = type;
-        const allBtns = Array.from(this.container.querySelectorAll('div[style*="cursor: pointer"]')) as HTMLElement[];
-        allBtns.forEach(btn => {
-            const btnText = btn.innerText.replace('Hire ', '');
-            if (btnText === id) {
-                btn.style.background = '#555';
-                btn.style.border = '1px solid #888';
-            } else {
-                btn.style.background = '#333';
-                btn.style.border = 'none';
-            }
-        });
     }
 }

@@ -1,16 +1,27 @@
 import * as THREE from 'three';
 import { Pathfinder, Tile, BlockedCheck } from '../core/Pathfinder';
 import { PathManager } from '../core/PathManager';
+import { VisualEffectManager } from '../core/VisualEffectManager';
 
 interface AnimationState {
     materials: THREE.SpriteMaterial[];
     frameDuration: number;
 }
 
+export type GuestState = 'wandering' | 'seeking_food' | 'seeking_drink' | 'seeking_restroom' | 'seeking_rest' | 'seeking_trash' | 'leaving';
+
 export class GuestInstance {
     public sprite: THREE.Sprite;
+    public shadow: THREE.Mesh;
     public happiness: number = 75;
+    public hunger: number = 0;
+    public thirst: number = 0;
+    public bathroom: number = 0;
+    public energy: number = 100;
+    public trash: number = 0;
     public thoughts: string[] = [];
+    
+    private state: GuestState = 'wandering';
     private currentDir: string = 'S';
     private currentFrame: number = 0;
     private lastFrameTime: number = 0;
@@ -19,11 +30,12 @@ export class GuestInstance {
     private path: Tile[] = [];
     private moveSpeed: number = 0.06;
     private lerpAlpha: number = 0;
+    private waitStartTime: number = 0;
 
     constructor(
         public type: 'man' | 'woman', 
         private animations: Record<string, AnimationState>,
-        scene: THREE.Scene,
+        private scene: THREE.Scene,
         private pathfinder: Pathfinder,
         startTile: Tile
     ) {
@@ -32,6 +44,17 @@ export class GuestInstance {
         this.sprite = new THREE.Sprite(startMat);
         scene.add(this.sprite);
         this.thoughts.push("Just arrived at the zoo!");
+
+        const shadowGeo = new THREE.PlaneGeometry(1.2, 0.6);
+        const shadowMat = new THREE.MeshBasicMaterial({ 
+            map: VisualEffectManager.getShadowTexture(), 
+            transparent: true, 
+            depthWrite: false 
+        });
+        this.shadow = new THREE.Mesh(shadowGeo, shadowMat);
+        this.shadow.rotation.x = -Math.PI / 2;
+        this.shadow.position.y = 0.01;
+        this.scene.add(this.shadow);
     }
 
     setPosition(x: number, y: number, z: number) {
@@ -41,6 +64,7 @@ export class GuestInstance {
             this.sprite.scale.set(img.width * scale, img.height * scale, 1);
             this.sprite.position.set(x, y + (img.height * scale) / 2, z);
             this.sprite.renderOrder = Math.floor(z * 100); 
+            this.shadow.position.set(x, 0.01, z);
         }
     }
 
@@ -64,9 +88,30 @@ export class GuestInstance {
         if (this.path.length > 0) this.path.shift();
     }
 
-    update(time: number, isEdgeBlocked: BlockedCheck, pathManager: PathManager, animals: any[]) {
+    update(time: number, isEdgeBlocked: BlockedCheck, pathManager: PathManager, animals: any[], buildings: any[], onConcessionPurchase: () => void) {
         const anim = this.animations[this.currentDir];
         if (!anim) return;
+
+        // 1. Update Needs
+        this.hunger += 0.01;
+        this.thirst += 0.015;
+        this.bathroom += 0.008;
+        this.energy -= 0.005;
+        this.trash += 0.005;
+
+        if (this.state === 'wandering' && (this.hunger > 50 || this.thirst > 50 || this.energy < 40 || this.trash > 60)) {
+            this.updateState(buildings, isEdgeBlocked);
+        }
+
+        // 2. State Machine
+        if (this.state === 'seeking_rest' && this.path.length === 0) {
+            if (time - this.waitStartTime > 5000) { // Rest for 5s
+                this.energy = 100;
+                this.state = 'wandering';
+                this.addThought("Feeling much better now.");
+            }
+            return;
+        }
 
         if (this.path.length > 0) {
             const nextTile = this.path[0];
@@ -77,6 +122,7 @@ export class GuestInstance {
                 this.path.shift();
                 this.lerpAlpha = 0;
                 this.checkNearbyAnimals(animals);
+                this.checkArrivedAtTarget(buildings, onConcessionPurchase, time);
             }
             const p1 = this.getTileWorldPos(this.currentTile);
             const p2 = this.path.length > 0 ? this.getTileWorldPos(this.path[0]) : p1;
@@ -85,10 +131,10 @@ export class GuestInstance {
             if (Math.random() < 0.01) {
                 const target = this.findRandomPathTile(pathManager);
                 if (target) this.walkTo(target, isEdgeBlocked);
-                else if (Math.random() < 0.1) this.thoughts.push("I wish there were more paths here.");
             }
         }
 
+        // 3. Animation
         if (time - this.lastFrameTime > anim.frameDuration) {
             this.currentFrame = (this.currentFrame + 1) % anim.materials.length;
             this.sprite.material = anim.materials[this.currentFrame];
@@ -97,12 +143,77 @@ export class GuestInstance {
         }
     }
 
+    private updateState(buildings: any[], isEdgeBlocked: BlockedCheck) {
+        if (this.energy < 40) {
+            const bench = buildings.find(b => b.id.includes('bench'));
+            if (bench) {
+                this.state = 'seeking_rest';
+                this.addThought("I need to find a place to sit down.");
+                this.walkTo({ x: bench.tileX, y: bench.tileY }, isEdgeBlocked);
+                return;
+            }
+        }
+
+        if (this.trash > 60) {
+            const can = buildings.find(b => b.id.includes('trash') || b.id.includes('bin'));
+            if (can) {
+                this.state = 'seeking_trash';
+                this.addThought("Looking for a trash can.");
+                this.walkTo({ x: can.tileX, y: can.tileY }, isEdgeBlocked);
+                return;
+            }
+        }
+
+        if (this.hunger > 70) {
+            const stand = buildings.find(b => b.id.includes('burger') || b.id.includes('hotdog'));
+            if (stand) {
+                this.state = 'seeking_food';
+                this.addThought("I'm hungry! Looking for food.");
+                this.walkTo({ x: stand.tileX, y: stand.tileY }, isEdgeBlocked);
+            }
+        } else if (this.thirst > 70) {
+            const stand = buildings.find(b => b.id.includes('drink') || b.id.includes('soda'));
+            if (stand) {
+                this.state = 'seeking_drink';
+                this.addThought("So thirsty...");
+                this.walkTo({ x: stand.tileX, y: stand.tileY }, isEdgeBlocked);
+            }
+        }
+    }
+
+    private checkArrivedAtTarget(buildings: any[], onConcessionPurchase: () => void, time: number) {
+        if (this.path.length > 0) return;
+
+        if (this.state === 'seeking_food') {
+            this.hunger = 0; this.trash += 20; this.state = 'wandering';
+            this.addThought("Yum! That burger was great.");
+            this.happiness = Math.min(100, this.happiness + 10);
+            onConcessionPurchase();
+        } else if (this.state === 'seeking_drink') {
+            this.thirst = 0; this.trash += 10; this.state = 'wandering';
+            this.addThought("Refreshing!");
+            this.happiness = Math.min(100, this.happiness + 10);
+            onConcessionPurchase();
+        } else if (this.state === 'seeking_rest') {
+            this.waitStartTime = time;
+            this.addThought("Taking a break.");
+        } else if (this.state === 'seeking_trash') {
+            this.trash = 0; this.state = 'wandering';
+            this.addThought("There we go, all clean.");
+            this.happiness = Math.min(100, this.happiness + 5);
+        }
+    }
+
+    private addThought(t: string) {
+        this.thoughts.push(t);
+        if (this.thoughts.length > 5) this.thoughts.shift();
+    }
+
     private checkNearbyAnimals(animals: any[]) {
         animals.forEach(a => {
             const dist = Math.sqrt(Math.pow(a.tileX - this.currentTile.x, 2) + Math.pow(a.tileY - this.currentTile.y, 2));
             if (dist < 5 && Math.random() < 0.05) {
-                this.thoughts.push(`Look at that ${a.id}!`);
-                if (this.thoughts.length > 5) this.thoughts.shift();
+                this.addThought(`Look at that ${a.id}!`);
                 this.happiness = Math.min(100, this.happiness + 2);
             }
         });
@@ -120,6 +231,15 @@ export class GuestInstance {
     private getTileWorldPos(tile: Tile): THREE.Vector3 {
         const tileSize = 2;
         return new THREE.Vector3(tile.x * tileSize - 75 + 1, 0, tile.y * tileSize - 75 + 1);
+    }
+
+    public destroy() {
+        this.scene.remove(this.sprite);
+        this.scene.remove(this.shadow);
+        if (this.sprite.material.map) this.sprite.material.map.dispose();
+        this.sprite.material.dispose();
+        this.shadow.geometry.dispose();
+        (this.shadow.material as THREE.Material).dispose();
     }
 }
 
@@ -158,12 +278,13 @@ export class GuestManager {
         const mirrorMap: Record<string, string> = { 'SW': 'SE', 'W': 'E', 'NW': 'NE' };
         for (const [target, source] of Object.entries(mirrorMap)) {
             if (anims[source]) {
-                const mirrored = anims[source].materials.map(m => {
+                const sourceState = anims[source];
+                const mirrored = sourceState.materials.map(m => {
                     const t = m.map!.clone();
                     t.wrapS = THREE.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1;
                     return new THREE.SpriteMaterial({ map: t, transparent: true });
                 });
-                anims[target] = { materials: mirrored, frameDuration: anims[source].frameDuration };
+                anims[target] = { materials: mirrored, frameDuration: sourceState.frameDuration };
             }
         }
         this.animationCache.set(type, anims);
@@ -178,10 +299,15 @@ export class GuestManager {
         }
     }
 
-    public update(time: number, isEdgeBlocked: BlockedCheck, pathManager: PathManager, animals: any[]) {
-        this.guests.forEach(g => g.update(time, isEdgeBlocked, pathManager, animals));
+    public update(time: number, isEdgeBlocked: BlockedCheck, pathManager: PathManager, animals: any[], buildings: any[], onConcessionPurchase: () => void) {
+        this.guests.forEach(g => g.update(time, isEdgeBlocked, pathManager, animals, buildings, onConcessionPurchase));
         if (this.guests.length < 10 && Math.random() < 0.01) {
             this.spawnGuest(37, 37);
         }
+    }
+
+    public reset() {
+        this.guests.forEach(g => g.destroy());
+        this.guests = [];
     }
 }

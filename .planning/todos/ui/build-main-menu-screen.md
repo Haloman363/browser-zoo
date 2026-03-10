@@ -1,6 +1,6 @@
 ---
 area: ui
-status: todo
+status: done
 priority: medium
 tags: [ui, main-menu, assets]
 ---

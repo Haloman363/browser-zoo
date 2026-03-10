@@ -70,6 +70,12 @@ export class FenceManager {
         return this.fenceData.has(`${x},${y},${side}`);
     }
 
+    public reset() {
+        this.fenceSprites.forEach(s => this.scene.remove(s));
+        this.fenceSprites.clear();
+        this.fenceData.clear();
+    }
+
     public serialize() {
         return Array.from(this.fenceData.entries()).map(([key, id]) => {
             const [x, y, side] = key.split(',');

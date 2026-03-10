@@ -24,7 +24,7 @@
 The prototype is complete and ready for user testing and further expansion (e.g., more scenarios, aquatic animals).
 
 ## Open Todos
-- [ ] **[UI] Build interface just like Zoo Tycoon with extracted assets** (Medium)
-- [ ] **[Engine] Import existing game scenarios** (Medium)
+- [x] **[UI] Build interface just like Zoo Tycoon with extracted assets** (Completed)
+- [x] **[Engine] Import existing game scenarios** (Completed)
 - [ ] **[Network] Add multiplayer option to host and connect with others** (Medium)
 - [x] **[Audio] Add game music and sound effects** (Completed)
