@@ -1,22 +1,30 @@
 # STATE: browser-zoo
 
-## Current Phase: Phase 3: User Interface & Main Menu
-**Status**: Starting development on the game's UI and main menu, recreating the original Zoo Tycoon experience.
+## Current Phase: Milestone 1 - Complete Prototype
+**Status**: The project has successfully reached its first major milestone. A fully-featured, authentic Zoo Tycoon 1 simulation is now playable in the browser.
 
 ## Key Features Implemented
-- [x] **Universal Extraction**: A robust toolset to extract original ZT1 assets (Animals, Scenery, Fences, Staff, Guests) from `.ztd` archives.
-- [x] **Isometric Rendering**: A high-performance Three.js renderer with camera pan/zoom and multi-layered terrain/path rendering.
-- [x] **Autonomous AI**: Real-time behavior for animals (wandering), guests (path-following), and staff (exhibit maintenance).
-- [x] **Management Simulation**: A functional economy with construction costs, guest income, and a detailed entity inspection system.
-- [x] **Persistence**: Automatic state saving and loading using LocalStorage.
-- [x] **Expansion Support**: Successfully integrated and extracted 10+ extra animals from community/expansion archives.
-- [x] **Main Menu**: Recreated the original Zoo Tycoon main menu with background music and assets.
+- [x] **Universal Extraction**: Robust toolset for original ZT1 graphics (`.ztd`, Skip-Draw RLE) and audio (`.wav`) extraction.
+- [x] **Authentic UI & HUD**: Recreated Main Menu, primary HUD, Financial Panels, and Animal Inspection windows using original assets.
+- [x] **Advanced Simulation**: 
+    - Time/Calendar system driving financial cycles.
+    - Detailed Economy (salaries, admission fees, concession profits).
+    - Advanced AI: Guests with complex needs (Hunger, Thirst, Rest, Trash) and Staff with maintenance routines.
+    - Animal Needs: Hunger, Energy, and Health systems.
+- [x] **Immersive Environment**: 
+    - Spatialized positional audio for animals.
+    - Robust `AudioManager` with Music, SFX, and Ambient channels.
+    - Integrated original ambient sounds (Forest, Sea, Wind, Leaves).
+    - Volume controls for all audio types in the Options menu.
+    - Procedural dynamic shadows, and a calendar-triggered Weather system (Rain, Snow, Storms).
+- [x] **Map & Scenario Support**: Binary `.zoo` map parser (`TZFBF`) and `.scn` rule tracking for playable scenarios.
+- [x] **Persistence**: Named save slots and automatic autosave functionality using LocalStorage.
 
 ## Final Notes
-The prototype is substantially complete and ready for further refinement or content expansion.
+The prototype is complete and ready for user testing and further expansion (e.g., more scenarios, aquatic animals).
 
 ## Open Todos
 - [ ] **[UI] Build interface just like Zoo Tycoon with extracted assets** (Medium)
 - [ ] **[Engine] Import existing game scenarios** (Medium)
 - [ ] **[Network] Add multiplayer option to host and connect with others** (Medium)
-- [ ] **[Audio] Add game music and sound effects** (Low)
+- [x] **[Audio] Add game music and sound effects** (Completed)

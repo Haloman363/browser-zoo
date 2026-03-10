@@ -1,6 +1,6 @@
 ---
 area: audio
-status: todo
+status: done
 priority: low
 tags: [music, sfx, ambiance, extraction]
 ---

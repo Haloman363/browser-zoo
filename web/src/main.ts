@@ -12,6 +12,12 @@ import { EconomyManager } from './core/EconomyManager';
 import { AudioManager } from './core/AudioManager';
 import { UIManager } from './ui/UIManager';
 import { MainMenu } from './ui/MainMenu';
+import { HUD } from './ui/HUD';
+import { ScenarioManager } from './core/ScenarioManager';
+import { TimeManager } from './core/TimeManager';
+import { FinancePanel } from './ui/FinancePanel';
+import { SaveLoadMenu } from './ui/SaveLoadMenu';
+import { VisualEffectManager } from './core/VisualEffectManager';
 import { GameState, StateManager } from './core/GameState';
 import { StatusWindow } from './ui/StatusWindow';
 import { EditorManager } from './core/EditorManager';
@@ -19,7 +25,8 @@ import { Pathfinder } from './core/Pathfinder';
 
 const WHITELIST = [
     'afrbuf', 'gorilla', 'lion', 'tiger', 'chimpanz', 'eleph', 'giraffe', 'hippo', 'ostrich', 'zebra',
-    'gallim', 'plateo', 'asieleph', 'bongo', 'yeti', 'baracuda', 'reindeer', 'mtnlion', 'llama', 'blckbuck'
+    'gallim', 'plateo', 'asieleph', 'bongo', 'yeti', 'baracuda', 'reindeer', 'mtnlion', 'llama', 'blckbuck',
+    'bigfoot', 'mexwolf', 'lochness', 'wilddog', 'asblckbr', 'komodo', 'megath'
 ];
 
 const status = document.createElement('div');
@@ -63,33 +70,119 @@ const pathfinder = new Pathfinder(75, 75);
 const terrainManager = new TerrainManager(75, 75);
 const pathManager = new PathManager(75, 75);
 const economyManager = new EconomyManager();
+const scenarioManager = new ScenarioManager();
+const timeManager = new TimeManager();
+const visualEffectManager = new VisualEffectManager(scene);
 const stateManager = new StateManager();
 const mainMenu = new MainMenu();
 const uiManager = new UIManager();
+const hud = new HUD();
 
 // Hide game UI initially
 uiManager.hide();
+hud.hide();
 status.style.display = 'none';
 
-mainMenu.onPlay((mode) => {
-    console.log(`Starting game in ${mode} mode...`);
+mainMenu.onPlay(async (mode, scenarioId) => {
+    console.log(`Starting game in ${mode} mode (${scenarioId || 'none'})...`);
+    
+    if (mode === 'scenario' && scenarioId) {
+        status.innerHTML = `Loading scenario ${scenarioId}...`;
+        try {
+            const response = await fetch(`./assets/maps/${scenarioId}.zoo`);
+            const arrayBuffer = await response.arrayBuffer();
+            const map = ZooMapParser.parse(Buffer.from(arrayBuffer));
+            await editorManager.loadMap(map, 25000);
+            
+            scenarioManager.loadScenario(scenarioId);
+            const firstGoal = scenarioManager.getGoals()[0];
+            status.innerHTML = `Scenario: ${scenarioId}. Goal: ${firstGoal?.description || 'Grow your zoo!'}`;
+        } catch (e) {
+            console.error("Failed to load scenario map:", e);
+            editorManager.resetZoo(25000);
+            status.innerHTML = `Scenario ${scenarioId} (Map failed to load). Goal: Grow your zoo!`;
+        }
+    } else {
+        editorManager.resetZoo(50000);
+        status.innerHTML = 'Freeform mode. Build your dream zoo!';
+    }
+
     mainMenu.hide();
-    uiManager.show();
-    status.style.display = 'block';
+    hud.show();
     stateManager.setState(GameState.Playing);
     
     // Play background music (loop)
-    const audio = new Audio('./assets/sounds/mainmenu.wav');
-    audio.loop = true;
-    audio.volume = 0.5;
-    audio.play();
+    audioManager.playMusic('mainmenu');
+});
+
+scenarioManager.onUpdate(() => {
+    const goals = scenarioManager.getGoals();
+    const nextGoal = goals.find(g => !g.completed);
+    if (nextGoal) {
+        status.innerHTML = `Next Goal: ${nextGoal.description}`;
+    } else if (scenarioManager.isWin()) {
+        status.innerHTML = 'YOU WIN! Zoo Tycoon Master.';
+        audioManager.playPlacementSound();
+    }
+});
+
+hud.onButtonClick((id) => {
+    audioManager.playClickSound();
+    switch (id) {
+        case 'BuyAnimal':
+            uiManager.showCategory('animal');
+            status.innerHTML = 'Select an animal to place.';
+            break;
+        case 'BuyHabitat':
+            uiManager.showCategory('terrain'); // Or fence
+            status.innerHTML = 'Select terrain or fence to build.';
+            break;
+        case 'BuyObject':
+            uiManager.showCategory('scenery');
+            status.innerHTML = 'Select scenery to place.';
+            break;
+        case 'BuyStaff':
+            uiManager.showCategory('staff');
+            status.innerHTML = 'Hire staff members.';
+            break;
+        case 'Bulldoze':
+            editorManager.setMode('bulldoze');
+            uiManager.setMode('bulldoze');
+            status.innerHTML = 'Bulldozer active.';
+            break;
+        case 'ZoomIn':
+            cameraControls.zoomIn();
+            break;
+        case 'ZoomOut':
+            cameraControls.zoomOut();
+            break;
+        case 'ZooStatus':
+            financePanel.show();
+            break;
+        case 'Options':
+            saveLoadMenu.show();
+            break;
+    }
 });
 
 const audioManager = new AudioManager(camera);
 const statusWindow = new StatusWindow();
+const persistenceManager = new PersistenceManager();
+const saveLoadMenu = new SaveLoadMenu(persistenceManager, audioManager);
+const financePanel = new FinancePanel(economyManager);
+
+saveLoadMenu.onSave((name) => {
+    editorManager.saveZooNamed(name);
+    status.innerHTML = `Zoo '${name}' saved successfully.`;
+});
+
+saveLoadMenu.onLoad(async (data) => {
+    await editorManager.loadZooData(data);
+    status.innerHTML = `Zoo '${data.name}' loaded.`;
+});
 const gridRenderer = new GridRenderer(scene, terrainManager, pathManager);
 const cameraControls = new CameraControls(camera, renderer.domElement);
-const animalManager = new AnimalManager(scene);
+const animalManager = new AnimalManager(scene, audioManager);
 const guestManager = new GuestManager(scene, pathfinder);
 const staffManager = new StaffManager(scene, pathfinder);
 const sceneryManager = new SceneryManager(scene);
@@ -99,7 +192,14 @@ const editorManager = new EditorManager(
     sceneryManager, fenceManager, staffManager, economyManager, uiManager
 );
 
-economyManager.onUpdate((cash) => uiManager.setCash(cash));
+editorManager.onModeChange((mode) => {
+    uiManager.setMode(mode);
+});
+
+economyManager.onUpdate((cash) => {
+    uiManager.setCash(cash);
+    hud.setMoney(cash);
+});
 
 uiManager.updateAnimalList(WHITELIST);
 uiManager.onSelect((type, id) => {
@@ -107,24 +207,31 @@ uiManager.onSelect((type, id) => {
     audioManager.playClickSound();
     if (type === 'animal') {
         editorManager.selectAnimalForPlacement(id);
+        uiManager.setMode('animal');
         status.innerHTML = `Placing Animal: ${id}. Cost: $500.`;
     } else if (type === 'scenery') {
         editorManager.selectSceneryForPlacement(id);
+        uiManager.setMode('scenery');
         status.innerHTML = `Placing Scenery: ${id}. Cost: $100.`;
     } else if (type === 'fence') {
         editorManager.selectFenceForPlacement(id);
+        uiManager.setMode('fence');
         status.innerHTML = `Placing Fence: ${id}. Cost: $50.`;
     } else if (type === 'path') {
         editorManager.selectPathForPainting(id);
+        uiManager.setMode('terrain');
         status.innerHTML = `Painting Path: ${id}. Cost: $20.`;
+    } else if (type === 'terrain') {
+        editorManager.selectTerrainForPainting(id);
+        uiManager.setMode('terrain');
+        status.innerHTML = `Painting Terrain: ${id}. Cost: $10.`;
     } else if (type === 'staff') {
         editorManager.selectStaffForHiring(id);
-        status.innerHTML = `Hiring Staff: ${id}. Cost: $1000.`;
-    } else {
-        editorManager.selectTerrainForPainting(id);
-        status.innerHTML = `Painting Terrain: ${id}. Cost: $10.`;
+        uiManager.setMode('staff');
+        status.innerHTML = `Hiring: ${id}. Cost: $1000.`;
     }
 });
+
 
 async function initGame() {
     status.style.display = 'block';
@@ -134,12 +241,36 @@ async function initGame() {
     await audioManager.init();
     audioManager.playAmbient();
     
-    setInterval(() => {
+    timeManager.setOnDayEnd((day, month, year) => {
+        hud.setDate(timeManager.getDateString());
+        
+        // Random weather change
+        if (day === 1 && Math.random() < 0.3) {
+            const types: ('rain' | 'snow' | 'storm')[] = ['rain', 'snow', 'storm'];
+            const selected = types[Math.floor(Math.random() * types.length)];
+            visualEffectManager.setWeather(selected);
+            status.innerHTML = `It started to ${selected === 'storm' ? 'storm' : selected}!`;
+        } else if (day === 5) {
+            visualEffectManager.setWeather('none');
+        }
+
+        // Daily income from guests
         const guestCount = guestManager.guests.length;
         if (guestCount > 0) {
-            economyManager.addCash(guestCount * 10);
+            const incomePerGuest = economyManager.getAdmissionFee();
+            economyManager.addCash(guestCount * incomePerGuest, 'admission');
         }
-    }, 10000);
+    });
+
+    timeManager.setOnMonthEnd((month, year) => {
+        // Subtract salaries
+        const salaries = staffManager.getSalaries();
+        economyManager.subtractCash(salaries, 'salaries');
+        console.log(`[Finance] Month End. Salaries paid: $${salaries}`);
+        
+        // Reset stats for new month
+        economyManager.resetMonthlyStats();
+    });
 
     status.innerHTML = 'Zoo Tycoon: Ready! Select a tool to start building.';
 }
@@ -180,6 +311,8 @@ function animate(time: number) {
     requestAnimationFrame(animate);
     if (stateManager.getState() !== GameState.Playing) return;
 
+    timeManager.update(time);
+    visualEffectManager.update(time, camera);
     cameraControls.update();
     raycaster.setFromCamera(mouse, camera);
     const hovered = gridRenderer.updateHover(raycaster);
@@ -188,8 +321,19 @@ function animate(time: number) {
     }
     const blockedCheck = (x: number, y: number, side: 'n' | 'e' | 's' | 'w') => 
         fenceManager.isEdgeBlocked(x, y, side);
-    editorManager.update(time);
-    guestManager.update(time, blockedCheck, pathManager, editorManager.getAnimalData());
+    editorManager.update(time, audioManager);
+    guestManager.update(time, blockedCheck, pathManager, editorManager.getAnimalData(), editorManager.getBuildings(), () => {
+        const price = economyManager.getConcessionPrice();
+        economyManager.addCash(price, 'concessions');
+    });
+    
+    // Update Scenario
+    scenarioManager.update({
+        animals: editorManager.getAnimalData(),
+        staff: editorManager.getStaffData(),
+        cash: economyManager.getCash()
+    });
+
     renderer.render(scene, camera);
 }
 
