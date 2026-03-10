@@ -52,11 +52,39 @@ export class EditorManager {
         private fenceManager: FenceManager,
         private staffManager: StaffManager,
         private economyManager: EconomyManager,
-        private uiManager: UIManager
+        private uiManager: UIManager,
+        private networkManager?: NetworkManager
     ) {
         this.exhibitManager = new ExhibitManager(fenceManager);
         setInterval(() => this.saveZoo(), 5000);
         setInterval(() => this.updateSatisfaction(), 10000);
+    }
+
+    private broadcastAction(action: string, data: any) {
+        if (this.networkManager && this.networkManager.isConnected()) {
+            this.networkManager.send({ type: 'action', action, data });
+        }
+    }
+
+    public async handleAction(action: string, data: any) {
+        switch (action) {
+            case 'place_animal':
+                await this.placeAnimal(data.id, data.x, data.y, true);
+                break;
+            case 'place_scenery':
+                await this.placeScenery(data.id, data.x, data.y, true);
+                break;
+            case 'place_fence':
+                await this.fenceManager.placeFence(data.x, data.y, data.side, data.id);
+                this.exhibitManager.updateExhibits();
+                break;
+            case 'paint_terrain':
+                this.terrainManager.setTile(data.x, data.y, data.type);
+                break;
+            case 'paint_path':
+                this.pathManager.setPath(data.x, data.y, data.type);
+                break;
+        }
     }
 
     public getMode() { return this.currentMode; }
@@ -154,6 +182,7 @@ export class EditorManager {
         if (this.currentMode === 'place_animal' && this.currentSelectedId) {
             if (this.economyManager.subtractCash(costs.animal)) {
                 await this.placeAnimal(this.currentSelectedId, tile.x, tile.y);
+                this.broadcastAction('place_animal', { id: this.currentSelectedId, x: tile.x, y: tile.y });
             } else {
                 this.uiManager.showError('Insufficient funds for Animal!');
             }
@@ -161,6 +190,7 @@ export class EditorManager {
             if (this.terrainManager.getTile(tile.x, tile.y) !== this.currentTerrainType) {
                 if (this.economyManager.subtractCash(costs.terrain)) {
                     this.terrainManager.setTile(tile.x, tile.y, this.currentTerrainType);
+                    this.broadcastAction('paint_terrain', { type: this.currentTerrainType, x: tile.x, y: tile.y });
                 } else {
                     this.uiManager.showError('Insufficient funds for Terrain!');
                 }
@@ -169,6 +199,7 @@ export class EditorManager {
             if (this.pathManager.getPath(tile.x, tile.y) !== this.currentPathType) {
                 if (this.economyManager.subtractCash(costs.path)) {
                     this.pathManager.setPath(tile.x, tile.y, this.currentPathType);
+                    this.broadcastAction('paint_path', { type: this.currentPathType, x: tile.x, y: tile.y });
                 } else {
                     this.uiManager.showError('Insufficient funds for Path!');
                 }
@@ -176,6 +207,7 @@ export class EditorManager {
         } else if (this.currentMode === 'place_scenery' && this.currentSelectedId) {
             if (this.economyManager.subtractCash(costs.scenery)) {
                 await this.placeScenery(this.currentSelectedId, tile.x, tile.y);
+                this.broadcastAction('place_scenery', { id: this.currentSelectedId, x: tile.x, y: tile.y });
             } else {
                 this.uiManager.showError('Insufficient funds for Scenery!');
             }
@@ -185,6 +217,7 @@ export class EditorManager {
                 if (this.economyManager.subtractCash(costs.fence)) {
                     await this.fenceManager.placeFence(tile.x, tile.y, side, this.currentSelectedId);
                     this.exhibitManager.updateExhibits();
+                    this.broadcastAction('place_fence', { id: this.currentSelectedId, x: tile.x, y: tile.y, side });
                 } else {
                     this.uiManager.showError('Insufficient funds for Fence!');
                 }
@@ -194,6 +227,7 @@ export class EditorManager {
             const hireCost = costMap[this.currentSelectedId] || 500;
             if (this.economyManager.subtractCash(hireCost, 'salaries')) {
                 this.staffManager.hire(this.currentSelectedId as any, tile.x, tile.y);
+                // Staff not synced yet for simplicity
             } else {
                 this.uiManager.showError(`Insufficient funds for ${this.currentSelectedId}!`);
             }
@@ -277,7 +311,7 @@ export class EditorManager {
         }
     }
 
-    public async placeAnimal(id: string, x: number, y: number) {
+    public async placeAnimal(id: string, x: number, y: number, isRemote: boolean = false) {
         try {
             await this.animalManager.loadAnimal(id, 'walk');
             const instance = this.animalManager.createInstance(id, 'walk', { x, y });
@@ -285,17 +319,25 @@ export class EditorManager {
                 const worldPos = this.gridRenderer.getTileWorldPos(x, y);
                 instance.setPosition(worldPos.x, 0, worldPos.z);
                 this.animals.push({ id, tileX: x, tileY: y, instance });
+                
+                if (isRemote) {
+                    console.log(`[EditorManager] Remote animal placed: ${id} at ${x},${y}`);
+                }
             }
         } catch (e) { console.error(e); }
     }
 
-    public async placeScenery(id: string, x: number, y: number) {
+    public async placeScenery(id: string, x: number, y: number, isRemote: boolean = false) {
         try {
             const texture = await this.sceneryManager.loadObject(id, 'se');
             const instance = this.sceneryManager.createInstance(id, texture);
             const worldPos = this.gridRenderer.getTileWorldPos(x, y);
             instance.setPosition(worldPos.x, 0, worldPos.z);
             this.scenery.push({ id, tileX: x, tileY: y, instance });
+
+            if (isRemote) {
+                console.log(`[EditorManager] Remote scenery placed: ${id} at ${x},${y}`);
+            }
         } catch (e) { console.error(e); }
     }
 
@@ -351,8 +393,15 @@ export class EditorManager {
         return Array.from(this.pathManager.serialize());
     }
 
-    public getStaffData() {
-        return this.staffManager.keepers.map(k => ({ id: 'keeper', x: k.currentTile.x, y: k.currentTile.y }));
+    public serializeFullState() {
+        return {
+            terrain: this.terrainManager.serialize(),
+            paths: this.getPathData(),
+            scenery: this.getSceneryData(),
+            fences: this.getFenceData(),
+            animals: this.getAnimalData(),
+            cash: this.economyManager.getCash()
+        };
     }
 
     public saveZoo() {

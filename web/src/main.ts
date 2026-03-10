@@ -23,6 +23,8 @@ import { StatusWindow } from './ui/StatusWindow';
 import { EditorManager } from './core/EditorManager';
 import { Pathfinder } from './core/Pathfinder';
 
+import { NetworkManager } from './core/NetworkManager';
+
 const WHITELIST = [
     'afrbuf', 'gorilla', 'lion', 'tiger', 'chimpanz', 'eleph', 'giraffe', 'hippo', 'ostrich', 'zebra',
     'gallim', 'plateo', 'asieleph', 'bongo', 'yeti', 'baracuda', 'reindeer', 'mtnlion', 'llama', 'blckbuck',
@@ -77,13 +79,14 @@ const stateManager = new StateManager();
 const mainMenu = new MainMenu();
 const uiManager = new UIManager();
 const hud = new HUD();
+const networkManager = new NetworkManager();
 
 // Hide game UI initially
 uiManager.hide();
 hud.hide();
 status.style.display = 'none';
 
-mainMenu.onPlay(async (mode, scenarioId) => {
+const startGame = async (mode: 'freeform' | 'scenario', scenarioId?: string) => {
     console.log(`Starting game in ${mode} mode (${scenarioId || 'none'})...`);
     
     if (mode === 'scenario' && scenarioId) {
@@ -103,8 +106,18 @@ mainMenu.onPlay(async (mode, scenarioId) => {
             status.innerHTML = `Scenario ${scenarioId} (Map failed to load). Goal: Grow your zoo!`;
         }
     } else {
-        editorManager.resetZoo(50000);
-        status.innerHTML = 'Freeform mode. Build your dream zoo!';
+        if (!networkManager.isConnected() || networkManager.isHosting()) {
+            editorManager.resetZoo(50000);
+        }
+        if (networkManager.isHosting()) {
+             status.innerHTML = 'Multiplayer Host. Waiting for players...';
+        } else if (networkManager.isConnected()) {
+             status.innerHTML = 'Multiplayer Client. Requesting World State...';
+             // Request world state
+             networkManager.send({ type: 'hello', name: 'Player' });
+        } else {
+             status.innerHTML = 'Freeform mode. Build your dream zoo!';
+        }
     }
 
     mainMenu.hide();
@@ -113,6 +126,36 @@ mainMenu.onPlay(async (mode, scenarioId) => {
     
     // Play background music (loop)
     audioManager.playMusic('mainmenu');
+};
+
+mainMenu.onPlay(startGame);
+
+mainMenu.onNetworkAction(async (action) => {
+    if (action === 'host') {
+        try {
+            status.style.display = 'block';
+            status.innerHTML = 'Starting multiplayer session...';
+            const id = await networkManager.hostGame();
+            alert(`Your Host ID is: ${id}\nShare this with a friend to join.`);
+            startGame('freeform');
+        } catch (e) {
+            console.error(e);
+            status.innerHTML = 'Failed to host game.';
+        }
+    } else {
+        const hostId = prompt("Enter Host ID to join:");
+        if (hostId) {
+            try {
+                status.style.display = 'block';
+                status.innerHTML = `Connecting to ${hostId}...`;
+                await networkManager.joinGame(hostId);
+                startGame('freeform');
+            } catch (e) {
+                console.error(e);
+                status.innerHTML = 'Failed to connect.';
+            }
+        }
+    }
 });
 
 scenarioManager.onUpdate(() => {
@@ -189,8 +232,32 @@ const sceneryManager = new SceneryManager(scene);
 const fenceManager = new FenceManager(scene);
 const editorManager = new EditorManager(
     animalManager, gridRenderer, terrainManager, pathManager, 
-    sceneryManager, fenceManager, staffManager, economyManager, uiManager
+    sceneryManager, fenceManager, staffManager, economyManager, uiManager,
+    networkManager
 );
+
+networkManager.on('packet', async (packet) => {
+    switch (packet.type) {
+        case 'hello':
+            if (networkManager.isHosting()) {
+                console.log(`[Network] Sending world state to guest...`);
+                networkManager.send({ type: 'world_state', data: editorManager.serializeFullState() });
+            }
+            break;
+        case 'world_state':
+            console.log(`[Network] Received world state! Applying...`);
+            await editorManager.loadZooData({ ...packet.data, name: 'remote_sync' });
+            status.innerHTML = 'World Synchronized. Enjoy the zoo!';
+            break;
+        case 'action':
+            console.log(`[Network] Remote action: ${packet.action}`);
+            await editorManager.handleAction(packet.action, packet.data);
+            break;
+        case 'chat':
+            console.log(`[Chat] ${packet.sender}: ${packet.message}`);
+            break;
+    }
+});
 
 editorManager.onModeChange((mode) => {
     uiManager.setMode(mode);

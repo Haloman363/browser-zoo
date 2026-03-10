@@ -3,6 +3,7 @@ export class MainMenu {
     private menuWrapper: HTMLElement;
     private scenarioWrapper: HTMLElement | null = null;
     private onPlayCallback: (mode: 'scenario' | 'freeform', scenarioId?: string) => void = () => {};
+    private onNetworkCallback: (action: 'host' | 'join') => void = () => {};
 
     constructor() {
         this.container = document.createElement('div');
@@ -46,13 +47,15 @@ export class MainMenu {
 
         // Coordinates from startup.lyt
         const buttons = [
-            { id: 'PlayScenario', text: 'New Scenario Game', y: 260, dx: 350, action: () => this.showScenarios() },
-            { id: 'PlayFreeform', text: 'New Freeform Game', y: 300, dx: 268, mode: 'freeform' as const },
-            { id: 'LoadGame', text: 'Load Game', y: 340, dx: 268 },
-            { id: 'ContinueGame', text: 'Continue Game', y: 380, dx: 268 },
-            { id: 'ZooItems', text: 'Zoo Items', y: 430, dx: 320 },
-            { id: 'Credits', text: 'Credits', y: 470, dx: 236 },
-            { id: 'Exit', text: 'Exit', y: 510, dx: 236 }
+            { id: 'PlayScenario', text: 'New Scenario Game', y: 220, dx: 350, action: () => this.showScenarios() },
+            { id: 'PlayFreeform', text: 'New Freeform Game', y: 260, dx: 268, mode: 'freeform' as const },
+            { id: 'HostGame', text: 'Host Multiplayer', y: 300, dx: 268, action: () => this.onNetworkCallback('host') },
+            { id: 'JoinGame', text: 'Join Multiplayer', y: 340, dx: 268, action: () => this.onNetworkCallback('join') },
+            { id: 'LoadGame', text: 'Load Game', y: 380, dx: 268 },
+            { id: 'ContinueGame', text: 'Continue Game', y: 420, dx: 268 },
+            { id: 'ZooItems', text: 'Zoo Items', y: 460, dx: 320 },
+            { id: 'Credits', text: 'Credits', y: 500, dx: 236 },
+            { id: 'Exit', text: 'Exit', y: 540, dx: 236 }
         ];
 
         buttons.forEach(btnInfo => {
@@ -157,6 +160,10 @@ export class MainMenu {
 
     public onPlay(callback: (mode: 'scenario' | 'freeform', scenarioId?: string) => void) {
         this.onPlayCallback = callback;
+    }
+
+    public onNetworkAction(callback: (action: 'host' | 'join') => void) {
+        this.onNetworkCallback = callback;
     }
 
     public hide() {
