@@ -1,7 +1,9 @@
 # PROJECT: browser-zoo
 
 ## Goal
-To take the Zoo Tycoon 1 game files and convert them to a modern format that is playable in a web browser.
+To take the original Zoo Tycoon 1 game files (provided by the user) and convert them to a modern format that is playable in a web browser.
+
+> **Note**: This project requires original game files (`.ztd`, `.pal`) from a legal copy of Zoo Tycoon 1 (2001). These files are not provided in this repository.
 
 ## Key Features
 - **Functionality**: Replicating the core gameplay loops of Zoo Tycoon 1.

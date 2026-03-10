@@ -1,5 +1,9 @@
 # GEMINI.md - browser-zoo
 
+## ⚠️ Game Files Required
+**This project does not include the original Zoo Tycoon 1 game assets.** 
+To use this project, you must provide your own copy of the classic "Zoo Tycoon 1" (2001) `.ztd` and `.pal` files. These must be placed in the `Gamefiles/` directory before running any extraction tools.
+
 ## Project Overview
 `browser-zoo` is a modern, web-based recreation of the classic "Zoo Tycoon 1" (2001). The project consists of two primary components:
 1.  **Asset Extraction Pipeline (`tools/`)**: A suite of TypeScript scripts designed to reverse-engineer and decode proprietary Zoo Tycoon asset formats (including `.ztd` archives, `.pal` palettes, and custom sprite formats like FATZ/ZATF using Skip-Draw RLE).
@@ -11,6 +15,7 @@ The ultimate goal is to provide a playable, moddable, and high-performance versi
 - **Language**: TypeScript (throughout)
 - **Frontend**: [Three.js](https://threejs.org/), [Vite](https://vitejs.dev/)
 - **Asset Extraction**: Node.js, [adm-zip](https://www.npmjs.com/package/adm-zip) (ZIP handling), [Jimp](https://www.npmjs.com/package/jimp) (Image processing)
+- **Networking**: [PeerJS](https://peerjs.com/) (P2P Multiplayer)
 - **Project Planning**: Structured documentation in `.planning/` (`PROJECT.md`, `ROADMAP.md`, `STATE.md`, `REQUIREMENTS.md`)
 
 ## Project Structure
@@ -22,19 +27,19 @@ The ultimate goal is to provide a playable, moddable, and high-performance versi
     - `src/main.ts`: Entry point for the Three.js renderer.
     - `src/zoo/`: Game logic (AnimalManager, etc.).
     - `public/assets/`: Destination for extracted PNGs and JSON metadata.
-- `Gamefiles/`: (Required) Original Zoo Tycoon `.ztd` and `.pal` files for extraction.
+- `Gamefiles/`: **(User-Provided)** Place original Zoo Tycoon `.ztd` and `.pal` files here for extraction.
 - `External Tools/`: Reference tools like APE (Animal Property Editor).
 - `Extras/`: Additional game content (animals, themes).
 
 ## Building and Running
 
-### Asset Extraction
+### 1. Extraction
 Before running the web app, you must extract the game assets.
 - **Extract specific assets**: `npx ts-node tools/<script_name>.ts`
 - **Batch extraction (WIP)**: `npx ts-node tools/master_extract.ts`
 - *Note: Ensure the required `.ztd` files are present in `Gamefiles/`.*
 
-### Web Development
+### 2. Web Development
 - **Start Dev Server**: `npx vite web` (Runs the Vite server targeting the `web/` directory)
 - **Build for Production**: `npx vite build web`
 

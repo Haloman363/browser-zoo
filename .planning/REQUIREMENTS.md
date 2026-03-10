@@ -1,5 +1,8 @@
 # REQUIREMENTS: browser-zoo
 
+## 0. Prerequisites
+- [PRE-01] **Original Game Files**: Users must provide `.ztd` and `.pal` files from a legal copy of Zoo Tycoon 1 (2001). These are required for asset extraction.
+
 ## 1. Asset Extraction & Conversion (The Pipeline)
 - [EXTRACT-01] **Archive Management**: Must be able to read and extract files from `.ztd` (ZIP) archives.
 - [EXTRACT-02] **Graphic Decoding**: Support for the proprietary `FATZ`/`ZATF` "Skip-Draw" RLE format.
