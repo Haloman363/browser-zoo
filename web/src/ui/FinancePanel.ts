@@ -73,7 +73,7 @@ export class FinancePanel {
             fontFamily: 'monospace',
             fontSize: '10px'
         });
-        pricing.innerHTML = 'ADMISSION FEE:';
+        pricing.textContent = 'ADMISSION FEE:';
         
         const feeRow = document.createElement('div');
         Object.assign(feeRow.style, { display: 'flex', alignItems: 'center', marginTop: '5px' });
@@ -98,7 +98,7 @@ export class FinancePanel {
 
         const concessionLabel = document.createElement('div');
         Object.assign(concessionLabel.style, { marginTop: '10px' });
-        concessionLabel.innerHTML = 'CONCESSION PRICE:';
+        concessionLabel.textContent = 'CONCESSION PRICE:';
         pricing.appendChild(concessionLabel);
 
         const concessionRow = document.createElement('div');
@@ -179,17 +179,35 @@ export class FinancePanel {
         if (this.feeValue) this.feeValue.innerText = `$${fee}`;
         if (this.concessionValue) this.concessionValue.innerText = `$${cPrice}`;
 
-        this.content.innerHTML = `
-            <div style="border-bottom: 1px solid #837D35; margin-bottom: 10px; padding-bottom: 5px;">
-                TOTAL CASH:<br/>
-                <span style="color: #fff">$${cash.toLocaleString()}</span>
-            </div>
-            <div>
-                MONTHLY PROFIT:<br/>
-                <span style="color: ${profit >= 0 ? '#00ff00' : '#ff0000'}">
-                    $${profit.toLocaleString()}
-                </span>
-            </div>
-        `;
+        // Clear existing content safely
+        this.content.textContent = '';
+        
+        // Build cash section
+        const cashSection = document.createElement('div');
+        cashSection.style.borderBottom = '1px solid #837D35';
+        cashSection.style.marginBottom = '10px';
+        cashSection.style.paddingBottom = '5px';
+        
+        cashSection.appendChild(document.createTextNode('TOTAL CASH:'));
+        cashSection.appendChild(document.createElement('br'));
+        
+        const cashAmount = document.createElement('span');
+        cashAmount.style.color = '#fff';
+        cashAmount.textContent = `$${cash.toLocaleString()}`;
+        cashSection.appendChild(cashAmount);
+        
+        // Build profit section
+        const profitSection = document.createElement('div');
+        profitSection.appendChild(document.createTextNode('MONTHLY PROFIT:'));
+        profitSection.appendChild(document.createElement('br'));
+        
+        const profitAmount = document.createElement('span');
+        profitAmount.style.color = profit >= 0 ? '#00ff00' : '#ff0000';
+        profitAmount.textContent = `$${profit.toLocaleString()}`;
+        profitSection.appendChild(profitAmount);
+        
+        // Append to content
+        this.content.appendChild(cashSection);
+        this.content.appendChild(profitSection);
     }
 }

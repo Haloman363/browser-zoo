@@ -6,14 +6,29 @@ export class CameraControls {
     private zoomSpeed: number = 0.1;
     private minZoom: number = 0.5;
     private maxZoom: number = 5;
+    
+    // Memory leak fix: Store bound handlers for cleanup
+    private keydownHandler = (e: KeyboardEvent) => this.keys[e.key.toLowerCase()] = true;
+    private keyupHandler = (e: KeyboardEvent) => this.keys[e.key.toLowerCase()] = false;
+    private wheelHandler = (e: WheelEvent) => this.onWheel(e);
 
     constructor(
         private camera: THREE.OrthographicCamera,
         private domElement: HTMLElement
     ) {
-        window.addEventListener('keydown', (e) => this.keys[e.key.toLowerCase()] = true);
-        window.addEventListener('keyup', (e) => this.keys[e.key.toLowerCase()] = false);
-        window.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+        window.addEventListener('keydown', this.keydownHandler);
+        window.addEventListener('keyup', this.keyupHandler);
+        window.addEventListener('wheel', this.wheelHandler, { passive: false });
+    }
+    
+    /**
+     * Cleanup method to prevent memory leaks
+     * Call this when destroying the camera controls
+     */
+    public destroy() {
+        window.removeEventListener('keydown', this.keydownHandler);
+        window.removeEventListener('keyup', this.keyupHandler);
+        window.removeEventListener('wheel', this.wheelHandler);
     }
 
     private onWheel(e: WheelEvent) {

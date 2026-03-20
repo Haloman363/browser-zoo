@@ -135,7 +135,7 @@ export class SaveLoadMenu {
     }
 
     public refreshList() {
-        this.saveListContainer.innerHTML = '';
+        this.saveListContainer.textContent = '';
         const saves = this.persistenceManager.listSaves();
         saves.forEach(name => {
             const row = document.createElement('div');

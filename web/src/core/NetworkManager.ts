@@ -1,10 +1,7 @@
 import { Peer, DataConnection } from 'peerjs';
+import { NetworkPacket, validateNetworkPacket } from '../utils/validators';
 
-export type NetworkPacket = 
-    | { type: 'hello', name: string }
-    | { type: 'world_state', data: any }
-    | { type: 'action', action: string, data: any }
-    | { type: 'chat', message: string, sender: string };
+export { NetworkPacket } from '../utils/validators';
 
 export class NetworkManager {
     private peer: Peer | null = null;
@@ -13,6 +10,10 @@ export class NetworkManager {
     private onPacket: (packet: NetworkPacket) => void = () => {};
     private onConnected: (id: string) => void = () => {};
     private onDisconnected: () => void = () => {};
+    
+    // Rate limiting to prevent DoS
+    private packetTimestamps: number[] = [];
+    private readonly MAX_PACKETS_PER_SECOND = 50;
 
     constructor() {}
 
@@ -47,6 +48,23 @@ export class NetworkManager {
             this.peer.on('error', (err) => reject(err));
         });
     }
+    
+    /**
+     * Rate limit check to prevent DoS attacks
+     */
+    private checkRateLimit(): boolean {
+        const now = Date.now();
+        // Remove timestamps older than 1 second
+        this.packetTimestamps = this.packetTimestamps.filter(t => now - t < 1000);
+        
+        if (this.packetTimestamps.length >= this.MAX_PACKETS_PER_SECOND) {
+            console.warn('[Network] Rate limit exceeded');
+            return false;
+        }
+        
+        this.packetTimestamps.push(now);
+        return true;
+    }
 
     private handleConnection(conn: DataConnection) {
         this.connection = conn;
@@ -57,8 +75,18 @@ export class NetworkManager {
         });
 
         conn.on('data', (data) => {
-            // Check packet type or handle raw data
-            this.onPacket(data as NetworkPacket);
+            // Rate limiting
+            if (!this.checkRateLimit()) {
+                return;
+            }
+            
+            // Validate packet before processing
+            const validated = validateNetworkPacket(data);
+            if (validated) {
+                this.onPacket(validated);
+            } else {
+                console.error('[Network] Received invalid packet, ignoring');
+            }
         });
 
         conn.on('close', () => {
@@ -72,7 +100,13 @@ export class NetworkManager {
 
     public send(packet: NetworkPacket) {
         if (this.connection && this.connection.open) {
-            this.connection.send(packet);
+            // Validate before sending
+            const validated = validateNetworkPacket(packet);
+            if (validated) {
+                this.connection.send(validated);
+            } else {
+                console.error('[Network] Attempted to send invalid packet');
+            }
         }
     }
 
@@ -86,5 +120,20 @@ export class NetworkManager {
         if (event === 'packet') this.onPacket = cb;
         if (event === 'connected') this.onConnected = cb;
         if (event === 'disconnected') this.onDisconnected = cb;
+    }
+    
+    /**
+     * Cleanup method to prevent memory leaks
+     */
+    public destroy() {
+        if (this.connection) {
+            this.connection.close();
+            this.connection = null;
+        }
+        if (this.peer) {
+            this.peer.destroy();
+            this.peer = null;
+        }
+        this.isHost = false;
     }
 }

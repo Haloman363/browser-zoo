@@ -87,7 +87,7 @@ export class Catalog {
     }
 
     public setItems(items: CatalogItem[]) {
-        this.itemsContainer.innerHTML = '';
+        this.itemsContainer.textContent = '';
         items.forEach(item => {
             const btn = document.createElement('div');
             Object.assign(btn.style, {

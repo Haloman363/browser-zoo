@@ -42,6 +42,10 @@ export class EditorManager {
     public exhibitManager: ExhibitManager;
     private satisfactionManager: SatisfactionManager = new SatisfactionManager();
     private onModeChangeCallback: (mode: EditorMode) => void = () => {};
+    
+    // Memory leak fix: Store timer IDs for cleanup
+    private saveInterval?: NodeJS.Timer;
+    private satisfactionInterval?: NodeJS.Timer;
 
     constructor(
         private animalManager: AnimalManager,
@@ -56,8 +60,23 @@ export class EditorManager {
         private networkManager?: NetworkManager
     ) {
         this.exhibitManager = new ExhibitManager(fenceManager);
-        setInterval(() => this.saveZoo(), 5000);
-        setInterval(() => this.updateSatisfaction(), 10000);
+        this.saveInterval = setInterval(() => this.saveZoo(), 5000);
+        this.satisfactionInterval = setInterval(() => this.updateSatisfaction(), 10000);
+    }
+    
+    /**
+     * Cleanup method to prevent memory leaks
+     * Call this when resetting the zoo or destroying the editor
+     */
+    public destroy() {
+        if (this.saveInterval) {
+            clearInterval(this.saveInterval);
+            this.saveInterval = undefined;
+        }
+        if (this.satisfactionInterval) {
+            clearInterval(this.satisfactionInterval);
+            this.satisfactionInterval = undefined;
+        }
     }
 
     private broadcastAction(action: string, data: any) {

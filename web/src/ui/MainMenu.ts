@@ -38,7 +38,7 @@ export class MainMenu {
     }
 
     private renderMain() {
-        this.menuWrapper.innerHTML = '';
+        this.menuWrapper.textContent = '';
         Object.assign(this.menuWrapper.style, {
             position: 'relative',
             width: '800px',

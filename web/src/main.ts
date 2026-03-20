@@ -41,7 +41,7 @@ status.style.fontFamily = 'monospace';
 status.style.background = 'rgba(0,0,0,0.7)';
 status.style.padding = '10px';
 status.style.zIndex = '100';
-status.innerHTML = 'Zoo Tycoon: Loading...';
+status.textContent = 'Zoo Tycoon: Loading...';
 document.body.appendChild(status);
 
 const scene = new THREE.Scene();
@@ -90,7 +90,7 @@ const startGame = async (mode: 'freeform' | 'scenario', scenarioId?: string) => 
     console.log(`Starting game in ${mode} mode (${scenarioId || 'none'})...`);
     
     if (mode === 'scenario' && scenarioId) {
-        status.innerHTML = `Loading scenario ${scenarioId}...`;
+        status.textContent = `Loading scenario ${scenarioId}...`;
         try {
             const response = await fetch(`./assets/maps/${scenarioId}.zoo`);
             const arrayBuffer = await response.arrayBuffer();
@@ -99,24 +99,24 @@ const startGame = async (mode: 'freeform' | 'scenario', scenarioId?: string) => 
             
             scenarioManager.loadScenario(scenarioId);
             const firstGoal = scenarioManager.getGoals()[0];
-            status.innerHTML = `Scenario: ${scenarioId}. Goal: ${firstGoal?.description || 'Grow your zoo!'}`;
+            status.textContent = `Scenario: ${scenarioId}. Goal: ${firstGoal?.description || 'Grow your zoo!'}`;
         } catch (e) {
             console.error("Failed to load scenario map:", e);
             editorManager.resetZoo(25000);
-            status.innerHTML = `Scenario ${scenarioId} (Map failed to load). Goal: Grow your zoo!`;
+            status.textContent = `Scenario ${scenarioId} (Map failed to load). Goal: Grow your zoo!`;
         }
     } else {
         if (!networkManager.isConnected() || networkManager.isHosting()) {
             editorManager.resetZoo(50000);
         }
         if (networkManager.isHosting()) {
-             status.innerHTML = 'Multiplayer Host. Waiting for players...';
+             status.textContent = 'Multiplayer Host. Waiting for players...';
         } else if (networkManager.isConnected()) {
-             status.innerHTML = 'Multiplayer Client. Requesting World State...';
+             status.textContent = 'Multiplayer Client. Requesting World State...';
              // Request world state
              networkManager.send({ type: 'hello', name: 'Player' });
         } else {
-             status.innerHTML = 'Freeform mode. Build your dream zoo!';
+             status.textContent = 'Freeform mode. Build your dream zoo!';
         }
     }
 
@@ -134,25 +134,25 @@ mainMenu.onNetworkAction(async (action) => {
     if (action === 'host') {
         try {
             status.style.display = 'block';
-            status.innerHTML = 'Starting multiplayer session...';
+            status.textContent = 'Starting multiplayer session...';
             const id = await networkManager.hostGame();
             alert(`Your Host ID is: ${id}\nShare this with a friend to join.`);
             startGame('freeform');
         } catch (e) {
             console.error(e);
-            status.innerHTML = 'Failed to host game.';
+            status.textContent = 'Failed to host game.';
         }
     } else {
         const hostId = prompt("Enter Host ID to join:");
         if (hostId) {
             try {
                 status.style.display = 'block';
-                status.innerHTML = `Connecting to ${hostId}...`;
+                status.textContent = `Connecting to ${hostId}...`;
                 await networkManager.joinGame(hostId);
                 startGame('freeform');
             } catch (e) {
                 console.error(e);
-                status.innerHTML = 'Failed to connect.';
+                status.textContent = 'Failed to connect.';
             }
         }
     }
@@ -162,9 +162,9 @@ scenarioManager.onUpdate(() => {
     const goals = scenarioManager.getGoals();
     const nextGoal = goals.find(g => !g.completed);
     if (nextGoal) {
-        status.innerHTML = `Next Goal: ${nextGoal.description}`;
+        status.textContent = `Next Goal: ${nextGoal.description}`;
     } else if (scenarioManager.isWin()) {
-        status.innerHTML = 'YOU WIN! Zoo Tycoon Master.';
+        status.textContent = 'YOU WIN! Zoo Tycoon Master.';
         audioManager.playPlacementSound();
     }
 });
@@ -174,24 +174,24 @@ hud.onButtonClick((id) => {
     switch (id) {
         case 'BuyAnimal':
             uiManager.showCategory('animal');
-            status.innerHTML = 'Select an animal to place.';
+            status.textContent = 'Select an animal to place.';
             break;
         case 'BuyHabitat':
             uiManager.showCategory('terrain'); // Or fence
-            status.innerHTML = 'Select terrain or fence to build.';
+            status.textContent = 'Select terrain or fence to build.';
             break;
         case 'BuyObject':
             uiManager.showCategory('scenery');
-            status.innerHTML = 'Select scenery to place.';
+            status.textContent = 'Select scenery to place.';
             break;
         case 'BuyStaff':
             uiManager.showCategory('staff');
-            status.innerHTML = 'Hire staff members.';
+            status.textContent = 'Hire staff members.';
             break;
         case 'Bulldoze':
             editorManager.setMode('bulldoze');
             uiManager.setMode('bulldoze');
-            status.innerHTML = 'Bulldozer active.';
+            status.textContent = 'Bulldozer active.';
             break;
         case 'ZoomIn':
             cameraControls.zoomIn();
@@ -216,12 +216,12 @@ const financePanel = new FinancePanel(economyManager);
 
 saveLoadMenu.onSave((name) => {
     editorManager.saveZooNamed(name);
-    status.innerHTML = `Zoo '${name}' saved successfully.`;
+    status.textContent = `Zoo '${name}' saved successfully.`;
 });
 
 saveLoadMenu.onLoad(async (data) => {
     await editorManager.loadZooData(data);
-    status.innerHTML = `Zoo '${data.name}' loaded.`;
+    status.textContent = `Zoo '${data.name}' loaded.`;
 });
 const gridRenderer = new GridRenderer(scene, terrainManager, pathManager);
 const cameraControls = new CameraControls(camera, renderer.domElement);
@@ -247,7 +247,7 @@ networkManager.on('packet', async (packet) => {
         case 'world_state':
             console.log(`[Network] Received world state! Applying...`);
             await editorManager.loadZooData({ ...packet.data, name: 'remote_sync' });
-            status.innerHTML = 'World Synchronized. Enjoy the zoo!';
+            status.textContent = 'World Synchronized. Enjoy the zoo!';
             break;
         case 'action':
             console.log(`[Network] Remote action: ${packet.action}`);
@@ -275,27 +275,27 @@ uiManager.onSelect((type, id) => {
     if (type === 'animal') {
         editorManager.selectAnimalForPlacement(id);
         uiManager.setMode('animal');
-        status.innerHTML = `Placing Animal: ${id}. Cost: $500.`;
+        status.textContent = `Placing Animal: ${id}. Cost: $500.`;
     } else if (type === 'scenery') {
         editorManager.selectSceneryForPlacement(id);
         uiManager.setMode('scenery');
-        status.innerHTML = `Placing Scenery: ${id}. Cost: $100.`;
+        status.textContent = `Placing Scenery: ${id}. Cost: $100.`;
     } else if (type === 'fence') {
         editorManager.selectFenceForPlacement(id);
         uiManager.setMode('fence');
-        status.innerHTML = `Placing Fence: ${id}. Cost: $50.`;
+        status.textContent = `Placing Fence: ${id}. Cost: $50.`;
     } else if (type === 'path') {
         editorManager.selectPathForPainting(id);
         uiManager.setMode('terrain');
-        status.innerHTML = `Painting Path: ${id}. Cost: $20.`;
+        status.textContent = `Painting Path: ${id}. Cost: $20.`;
     } else if (type === 'terrain') {
         editorManager.selectTerrainForPainting(id);
         uiManager.setMode('terrain');
-        status.innerHTML = `Painting Terrain: ${id}. Cost: $10.`;
+        status.textContent = `Painting Terrain: ${id}. Cost: $10.`;
     } else if (type === 'staff') {
         editorManager.selectStaffForHiring(id);
         uiManager.setMode('staff');
-        status.innerHTML = `Hiring: ${id}. Cost: $1000.`;
+        status.textContent = `Hiring: ${id}. Cost: $1000.`;
     }
 });
 
@@ -316,7 +316,7 @@ async function initGame() {
             const types: ('rain' | 'snow' | 'storm')[] = ['rain', 'snow', 'storm'];
             const selected = types[Math.floor(Math.random() * types.length)];
             visualEffectManager.setWeather(selected);
-            status.innerHTML = `It started to ${selected === 'storm' ? 'storm' : selected}!`;
+            status.textContent = `It started to ${selected === 'storm' ? 'storm' : selected}!`;
         } else if (day === 5) {
             visualEffectManager.setWeather('none');
         }
@@ -339,7 +339,7 @@ async function initGame() {
         economyManager.resetMonthlyStats();
     });
 
-    status.innerHTML = 'Zoo Tycoon: Ready! Select a tool to start building.';
+    status.textContent = 'Zoo Tycoon: Ready! Select a tool to start building.';
 }
 
 initGame();
