@@ -24,3 +24,23 @@ build/
 .vscode/
 .idea/
 .DS_Store
+.gemini/
+.bg-shell/
+
+# ── GSD baseline (auto-generated) ──
+Thumbs.db
+*.swp
+*.swo
+*~
+*.code-workspace
+!.env.example
+.next/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+vendor/
+coverage/
+.cache/
+tmp/
