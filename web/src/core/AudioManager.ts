@@ -76,6 +76,13 @@ export class AudioManager {
         }
     }
 
+    public async resumeContext() {
+        const ctx = this.listener.context;
+        if (ctx.state === 'suspended') {
+            await ctx.resume();
+        }
+    }
+
     public playMusic(name: string, loop: boolean = true) {
         const buffer = this.musicBuffers.get(name);
         if (!buffer) return;

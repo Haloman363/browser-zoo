@@ -44,3 +44,7 @@ vendor/
 coverage/
 .cache/
 tmp/
+
+# Screenshot artifacts from UI iteration / Playwright
+*.png
+.playwright-mcp/

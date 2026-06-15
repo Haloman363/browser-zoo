@@ -1,7 +1,7 @@
 import { Peer, DataConnection } from 'peerjs';
 import { NetworkPacket, validateNetworkPacket } from '../utils/validators';
 
-export { NetworkPacket } from '../utils/validators';
+export type { NetworkPacket } from '../utils/validators';
 
 export class NetworkManager {
     private peer: Peer | null = null;

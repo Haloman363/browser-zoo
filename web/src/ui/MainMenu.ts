@@ -45,17 +45,12 @@ export class MainMenu {
             height: '600px'
         });
 
-        // Coordinates from startup.lyt
         const buttons = [
-            { id: 'PlayScenario', text: 'New Scenario Game', y: 220, dx: 350, action: () => this.showScenarios() },
-            { id: 'PlayFreeform', text: 'New Freeform Game', y: 260, dx: 268, mode: 'freeform' as const },
-            { id: 'HostGame', text: 'Host Multiplayer', y: 300, dx: 268, action: () => this.onNetworkCallback('host') },
-            { id: 'JoinGame', text: 'Join Multiplayer', y: 340, dx: 268, action: () => this.onNetworkCallback('join') },
-            { id: 'LoadGame', text: 'Load Game', y: 380, dx: 268 },
-            { id: 'ContinueGame', text: 'Continue Game', y: 420, dx: 268 },
-            { id: 'ZooItems', text: 'Zoo Items', y: 460, dx: 320 },
-            { id: 'Credits', text: 'Credits', y: 500, dx: 236 },
-            { id: 'Exit', text: 'Exit', y: 540, dx: 236 }
+            { id: 'PlayScenario', text: 'New Scenario Game', y: 270, dx: 320, action: () => this.showScenarios() },
+            { id: 'PlayFreeform', text: 'New Freeform Game', y: 330, dx: 320, mode: 'freeform' as const },
+            { id: 'Multiplayer', text: 'Multiplayer', y: 390, dx: 320, action: () => this.showMultiplayerSubmenu() },
+            { id: 'LoadGame', text: 'Load Game', y: 450, dx: 320 },
+            { id: 'ContinueGame', text: 'Continue Game', y: 510, dx: 320 },
         ];
 
         buttons.forEach(btnInfo => {
@@ -93,13 +88,80 @@ export class MainMenu {
                     btnInfo.action();
                 } else if (btnInfo.mode) {
                     this.onPlayCallback(btnInfo.mode);
-                } else if (btnInfo.id === 'Exit') {
-                    window.close();
                 }
             };
 
             this.menuWrapper.appendChild(btn);
         });
+    }
+
+    private showMultiplayerSubmenu() {
+        this.menuWrapper.style.display = 'none';
+        const submenuWrapper = document.createElement('div');
+        Object.assign(submenuWrapper.style, {
+            position: 'relative',
+            width: '800px',
+            height: '600px',
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontFamily: 'Tahoma, Verdana, sans-serif'
+        });
+
+        const title = document.createElement('h2');
+        title.innerText = 'MULTIPLAYER';
+        Object.assign(title.style, { color: '#FFBA10', marginBottom: '30px', textShadow: '2px 2px 2px black' });
+        submenuWrapper.appendChild(title);
+
+        const subButtons = [
+            { text: 'Host Game', action: () => this.onNetworkCallback('host') },
+            { text: 'Join Game', action: () => this.onNetworkCallback('join') },
+        ];
+
+        subButtons.forEach(btnInfo => {
+            const btn = document.createElement('div');
+            btn.innerText = btnInfo.text;
+            Object.assign(btn.style, {
+                width: '268px',
+                padding: '10px',
+                margin: '8px',
+                textAlign: 'center',
+                color: '#FFBA10',
+                background: 'rgba(131, 125, 53, 0.5)',
+                border: '2px solid #837D35',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '18px',
+                textShadow: '2px 2px 2px black',
+                transition: 'all 0.1s'
+            });
+            btn.onmouseover = () => {
+                btn.style.color = '#FFDF29';
+                btn.style.background = 'rgba(131, 125, 53, 0.8)';
+            };
+            btn.onmouseout = () => {
+                btn.style.color = '#FFBA10';
+                btn.style.background = 'rgba(131, 125, 53, 0.5)';
+            };
+            btn.onclick = () => btnInfo.action();
+            submenuWrapper.appendChild(btn);
+        });
+
+        const back = document.createElement('div');
+        back.innerText = 'BACK';
+        Object.assign(back.style, { marginTop: '24px', cursor: 'pointer', color: '#888', fontSize: '16px' });
+        back.onmouseover = () => { back.style.color = '#ccc'; };
+        back.onmouseout = () => { back.style.color = '#888'; };
+        back.onclick = () => {
+            submenuWrapper.remove();
+            this.menuWrapper.style.display = 'block';
+        };
+        submenuWrapper.appendChild(back);
+
+        this.container.appendChild(submenuWrapper);
     }
 
     private showScenarios() {

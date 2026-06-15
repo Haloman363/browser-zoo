@@ -1,7 +1,7 @@
 import { TerrainManager } from './TerrainManager';
 import { ZooSaveData, ZooSaveSchema } from '../utils/validators';
 
-export { ZooSaveData } from '../utils/validators';
+export type { ZooSaveData } from '../utils/validators';
 
 export class PersistenceManager {
     private SAVE_PREFIX = 'zt_save_';

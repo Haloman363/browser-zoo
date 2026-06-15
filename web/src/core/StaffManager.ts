@@ -104,6 +104,7 @@ export abstract class StaffInstance {
 export type KeeperState = 'wandering' | 'moving_to_exhibit' | 'performing_task';
 
 export class KeeperInstance extends StaffInstance {
+    readonly id = 'keeper';
     private state: KeeperState = 'wandering';
     private targetExhibit: number | null = null;
     private taskStartTime: number = 0;
@@ -186,6 +187,7 @@ export class KeeperInstance extends StaffInstance {
 }
 
 export class MaintInstance extends StaffInstance {
+    readonly id = 'maint';
     update(time: number, isEdgeBlocked: BlockedCheck, editorManager: any) {
         const anim = this.animations[this.currentDir];
         if (!anim) return;
@@ -220,6 +222,7 @@ export class MaintInstance extends StaffInstance {
 }
 
 export class GuideInstance extends StaffInstance {
+    readonly id = 'guide';
     update(time: number, isEdgeBlocked: BlockedCheck, editorManager: any) {
         const anim = this.animations[this.currentDir];
         if (!anim) return;

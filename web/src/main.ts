@@ -24,6 +24,8 @@ import { EditorManager } from './core/EditorManager';
 import { Pathfinder } from './core/Pathfinder';
 
 import { NetworkManager } from './core/NetworkManager';
+import { PersistenceManager } from './core/PersistenceManager';
+import { ZooMapParser } from './core/ZooMapParser';
 
 const WHITELIST = [
     'afrbuf', 'gorilla', 'lion', 'tiger', 'chimpanz', 'eleph', 'giraffe', 'hippo', 'ostrich', 'zebra',
@@ -57,8 +59,12 @@ camera.position.set(100, 100, 100);
 camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
+renderer.domElement.style.position = 'absolute';
+renderer.domElement.style.left = '0';
+renderer.domElement.style.top = '0';
+// Initial size — will be corrected by HUD onResize once HUD initialises
+renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
@@ -122,10 +128,12 @@ const startGame = async (mode: 'freeform' | 'scenario', scenarioId?: string) => 
 
     mainMenu.hide();
     hud.show();
+    // Re-trigger renderer resize now that HUD is visible
+    window.dispatchEvent(new Event('resize'));
     stateManager.setState(GameState.Playing);
-    
-    // Play background music (loop)
-    audioManager.playMusic('mainmenu');
+
+    audioManager.stopMusic();
+    audioManager.playAmbient();
 };
 
 mainMenu.onPlay(startGame);
@@ -306,7 +314,17 @@ async function initGame() {
     await guestManager.init();
     await staffManager.init();
     await audioManager.init();
-    audioManager.playAmbient();
+
+    // Web Audio API is suspended until a user gesture — resume on first click then play music
+    const resumeAudio = () => {
+        audioManager.resumeContext().then(() => {
+            audioManager.playMusic('mainmenu');
+        });
+        window.removeEventListener('click', resumeAudio);
+        window.removeEventListener('keydown', resumeAudio);
+    };
+    window.addEventListener('click', resumeAudio);
+    window.addEventListener('keydown', resumeAudio);
     
     timeManager.setOnDayEnd((day, month, year) => {
         hud.setDate(timeManager.getDateString());
@@ -397,21 +415,34 @@ function animate(time: number) {
     // Update Scenario
     scenarioManager.update({
         animals: editorManager.getAnimalData(),
-        staff: editorManager.getStaffData(),
+        staff: staffManager.staff,
         cash: economyManager.getCash()
     });
 
+    hud.updateMinimap(terrainManager.getData(), gridRenderer.gridWidth, gridRenderer.gridHeight);
     renderer.render(scene, camera);
 }
 
 animate(0);
 
-window.addEventListener('resize', () => {
-    const aspect = window.innerWidth / window.innerHeight;
+function resizeRenderer(leftW: number, bottomH: number) {
+    const w = window.innerWidth - leftW;
+    const h = window.innerHeight - bottomH;
+    const aspect = w / h;
     camera.left = -frustumSize * aspect / 2;
     camera.right = frustumSize * aspect / 2;
     camera.top = frustumSize / 2;
     camera.bottom = -frustumSize / 2;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+    renderer.setSize(w, h);
+    renderer.domElement.style.position = 'absolute';
+    renderer.domElement.style.left = `${leftW}px`;
+    renderer.domElement.style.top = '0';
+}
+
+hud.onResize(resizeRenderer);
+// Fire immediately since HUD already initialised before this callback was registered
+{
+    const scale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
+    resizeRenderer(Math.round(33 * scale), Math.round(114 * scale));
+}
