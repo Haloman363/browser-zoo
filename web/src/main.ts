@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import './ui/ui.css';
 import { TerrainManager } from './core/TerrainManager';
 import { PathManager } from './core/PathManager';
 import { GridRenderer } from './core/GridRenderer';
@@ -34,15 +35,7 @@ const WHITELIST = [
 ];
 
 const status = document.createElement('div');
-status.style.position = 'absolute';
-status.style.top = '10px';
-status.style.left = '10px';
-status.style.color = 'white';
-status.style.fontSize = '18px';
-status.style.fontFamily = 'monospace';
-status.style.background = 'rgba(0,0,0,0.7)';
-status.style.padding = '10px';
-status.style.zIndex = '100';
+status.id = 'zt-status-banner';
 status.textContent = 'Zoo Tycoon: Loading...';
 document.body.appendChild(status);
 

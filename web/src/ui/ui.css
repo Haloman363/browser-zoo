@@ -1,0 +1,209 @@
+/* Zoo Tycoon Browser — UI design system.
+ * Modern fluid layout, colours sampled from the original ZT1 UI assets.
+ * Single source of truth: panels, bars, buttons, meters, modals. */
+
+:root {
+  /* Palette sampled from original ZT1 UI frame + text */
+  --zt-frame:      #313c33;   /* olive-green panel frame */
+  --zt-frame-lit:  #3d4a3f;   /* lighter top of gradient */
+  --zt-frame-dark: #26302a;   /* darker bottom of gradient */
+  --zt-accent:     #6b8f3f;   /* brighter green top-border accent */
+  --zt-gold:       #ffd43c;   /* money / date text */
+  --zt-text:       #e8ecdf;   /* general light text */
+  --zt-border:     #1c241e;
+
+  --btn: 40px;                /* icon button base size; media queries bump it */
+  --bar-bottom-h: 96px;       /* bottom bar height */
+  --bar-left-w:   52px;       /* left toolbar width */
+  --panel-radius: 8px;
+}
+
+@media (min-width: 1600px) { :root { --btn: 48px; --bar-bottom-h: 112px; --bar-left-w: 60px; } }
+@media (max-width: 700px)  { :root { --btn: 34px; --bar-bottom-h: 78px;  --bar-left-w: 44px; } }
+
+/* ---- Shared panel skin ---- */
+.zt-panel {
+  background: linear-gradient(var(--zt-frame-lit), var(--zt-frame) 40%, var(--zt-frame-dark));
+  border: 1px solid var(--zt-border);
+  border-top: 2px solid var(--zt-accent);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+  color: var(--zt-text);
+  box-sizing: border-box;
+}
+
+/* ---- Bars ---- */
+#zt-left-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: var(--bar-bottom-h);
+  width: var(--bar-left-w);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  overflow: hidden;
+  pointer-events: auto;
+  z-index: 2000;
+}
+#zt-left-bar .zt-spacer { flex: 1 1 auto; }  /* pushes tool cluster toward bottom */
+
+#zt-bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--bar-bottom-h);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px;
+  pointer-events: auto;
+  z-index: 2000;
+}
+#zt-bottom-bar .zt-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* Centre group takes the slack so date/money sit centred when there's room,
+ * and simply stops expanding (rather than pushing the right group off-screen)
+ * when the bar is tight. min-width:0 lets it shrink instead of overflowing. */
+#zt-bottom-bar .zt-group.center { flex: 1 1 auto; justify-content: center; min-width: 0; overflow: hidden; }
+/* On tight bars, keep the minimap modest so the status readouts stay on-screen. */
+@media (max-width: 1000px) {
+  #zt-minimap { height: calc(var(--bar-bottom-h) - 34px); }
+  #zt-bottom-bar { gap: 8px; }
+}
+
+/* ---- Icon buttons (original ZT1 glyph art, CSS-driven states) ---- */
+.zt-btn {
+  width: var(--btn);
+  height: var(--btn);
+  flex: 0 0 auto;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-image: var(--glyph-n);
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  transition: filter 0.1s, transform 0.05s;
+}
+.zt-btn:hover  { background-image: var(--glyph-h, var(--glyph-n)); filter: brightness(1.12); }
+.zt-btn:active { background-image: var(--glyph-s, var(--glyph-h, var(--glyph-n))); transform: translateY(1px); }
+
+/* ---- Text readouts ---- */
+.zt-money, .zt-date {
+  font-family: monospace;
+  font-weight: bold;
+  color: var(--zt-gold);
+  text-shadow: 1px 1px 1px #000;
+  white-space: nowrap;
+}
+.zt-money { font-size: clamp(13px, 1.4vw, 18px); margin-left: 6px; }
+.zt-date  { font-size: clamp(11px, 1.1vw, 15px); }
+
+/* ---- Minimap ---- */
+#zt-minimap {
+  image-rendering: pixelated;
+  border: 1px solid var(--zt-border);
+  border-radius: 4px;
+  height: calc(var(--bar-bottom-h) - 20px);
+  width: auto;
+  aspect-ratio: 139 / 69;
+}
+
+/* ---- Status meter ---- */
+.zt-meter {
+  width: clamp(40px, 5vw, 64px);
+  height: 12px;
+  background: url('./assets/ui/progbck/N_000.png') no-repeat;
+  background-size: 100% 100%;
+  border-radius: 3px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.zt-meter > div {
+  height: 100%;
+  background-size: 100% 100%;
+  transition: width 0.3s;
+}
+
+/* ---- Modal dialogs (catalog, finance, save/load, status windows) ---- */
+.zt-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6000;
+  pointer-events: auto;
+}
+.zt-modal {
+  max-width: min(90vw, 720px);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 20px;
+  border-radius: var(--panel-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.zt-modal h1, .zt-modal h2 {
+  margin: 0 0 4px;
+  color: var(--zt-gold);
+  font-family: Tahoma, Verdana, sans-serif;
+}
+
+/* ---- Menu (main menu / scenario picker) ---- */
+#zt-menu {
+  position: fixed;
+  inset: 0;
+  background: #000 center / cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  font-family: Tahoma, Verdana, sans-serif;
+}
+#zt-menu .zt-menu-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(90vw, 420px);
+  padding: 24px;
+}
+.zt-menu-btn {
+  padding: 12px 20px;
+  font-size: clamp(15px, 2vw, 20px);
+  font-weight: bold;
+  color: var(--zt-gold);
+  text-align: center;
+  cursor: pointer;
+  border-radius: 6px;
+  background: rgba(38,48,42,0.72);
+  border: 1px solid var(--zt-border);
+  border-top: 1px solid var(--zt-accent);
+  transition: background 0.12s, filter 0.12s;
+  user-select: none;
+}
+.zt-menu-btn:hover { background: rgba(60,74,63,0.85); filter: brightness(1.1); }
+
+/* ---- Top status/message banner ---- */
+#zt-status-banner {
+  position: fixed;
+  top: 8px;
+  left: calc(var(--bar-left-w) + 8px);
+  max-width: min(60vw, 640px);
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  font: 14px monospace;
+  pointer-events: none;
+  z-index: 100;
+}

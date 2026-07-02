@@ -11,394 +11,167 @@ export class HUD {
     private container: HTMLElement;
     private leftBar: HTMLElement;
     private bottomBar: HTMLElement;
-    private moneyDisplay: HTMLElement | null = null;
-    private dateDisplay: HTMLElement | null = null;
+    private moneyDisplay: HTMLElement;
+    private dateDisplay: HTMLElement;
+    private minimapCanvas: HTMLCanvasElement;
     private onButtonClickCallback: (id: HUDButtonID) => void = () => {};
     private onResizeCallback: ((leftW: number, bottomH: number) => void) | null = null;
-    private minimapCanvas: HTMLCanvasElement | null = null;
 
-    private zooMeter: StatusMeter | null = null;
-    private animalMeter: StatusMeter | null = null;
-    private guestMeter: StatusMeter | null = null;
+    private zooMeter: StatusMeter;
+    private animalMeter: StatusMeter;
+    private guestMeter: StatusMeter;
 
     constructor() {
         this.container = document.createElement('div');
         this.container.id = 'hud-container';
-        this.applyStyles();
+        // The container itself is a passthrough layer; the fixed bars inside catch events.
+        Object.assign(this.container.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '2000' });
 
-        this.leftBar = this.createLeftBar();
-        this.bottomBar = this.createBottomBar();
+        this.leftBar = document.createElement('div');
+        this.leftBar.id = 'zt-left-bar';
+
+        this.bottomBar = document.createElement('div');
+        this.bottomBar.id = 'zt-bottom-bar';
+        this.bottomBar.classList.add('zt-panel');
+        this.leftBar.classList.add('zt-panel');
+
+        this.buildLeftBar();
+        const built = this.buildBottomBar();
+        this.moneyDisplay = built.money;
+        this.dateDisplay = built.date;
+        this.minimapCanvas = built.minimap;
+        this.zooMeter = built.zooMeter;
+        this.animalMeter = built.animalMeter;
+        this.guestMeter = built.guestMeter;
 
         this.container.appendChild(this.leftBar);
         this.container.appendChild(this.bottomBar);
         document.body.appendChild(this.container);
 
-        this.scaleToViewport();
-        window.addEventListener('resize', () => this.scaleToViewport());
+        // Report bar sizes so the renderer can offset the canvas. CSS owns layout;
+        // we just measure it after it settles and on every resize.
+        requestAnimationFrame(() => this.reportSize());
+        window.addEventListener('resize', () => this.reportSize());
     }
 
-    private scaleToViewport() {
-        const scale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
-        const barH  = Math.round(114 * scale);
-        const leftW = Math.round(33  * scale);
+    private reportSize() {
+        if (!this.onResizeCallback) return;
+        const leftW = this.leftBar.getBoundingClientRect().width;
+        const bottomH = this.bottomBar.getBoundingClientRect().height;
+        this.onResizeCallback(Math.round(leftW), Math.round(bottomH));
+    }
 
-        // Left bar: set real pixel width so layout is correct (no CSS transform)
-        this.leftBar.style.transform = '';
-        this.leftBar.style.width = `${leftW}px`;
+    private makeButton(id: HUDButtonID, assetPath: string): HTMLElement {
+        const btn = document.createElement('div');
+        btn.id = id;
+        btn.className = 'zt-btn';
+        // CSS drives N/hover/pressed states from these custom properties.
+        btn.style.setProperty('--glyph-n', `url('${assetPath}/N_000.png')`);
+        btn.style.setProperty('--glyph-h', `url('${assetPath}/h_000.png')`);
+        btn.style.setProperty('--glyph-s', `url('${assetPath}/s_000.png')`);
+        btn.onclick = (e) => { e.stopPropagation(); this.onButtonClickCallback(id); };
+        return btn;
+    }
 
-        const topSection    = this.leftBar.children[0] as HTMLElement;
-        const bottomSection = this.leftBar.children[1] as HTMLElement;
-
-        const topH = Math.round(478 * scale);
-        topSection.style.width  = `${leftW}px`;
-        topSection.style.height = `${topH}px`;
-        topSection.style.backgroundSize = `${leftW}px ${topH}px`;
-
-        const botSecH = Math.round(122 * scale);
-        const botSecBottom = Math.round(114 * scale);
-        bottomSection.style.width  = `${leftW}px`;
-        bottomSection.style.height = `${botSecH}px`;
-        bottomSection.style.bottom = `${botSecBottom}px`;
-        bottomSection.style.backgroundSize = `${leftW}px ${botSecH}px`;
-
-        // Scale all buttons inside the left bar sections
-        this.scaleButtonsIn(topSection, scale);
-
-        // Bottom bar: set real height so it occupies the right amount of space.
-        // Scale the bg3 lip strip (native 35px) with the bar so it stays proportional.
-        this.bottomBar.style.height = `${barH}px`;
-        this.bottomBar.style.backgroundSize = `auto ${Math.round(35 * scale)}px`;
-
-        const leftPanel   = this.bottomBar.children[0] as HTMLElement;
-        const centerPanel = this.bottomBar.children[1] as HTMLElement;
-        const rightPanel  = this.bottomBar.children[2] as HTMLElement;
-
-        // Left panel (304x114) — set real scaled dimensions
-        const lW = Math.round(304 * scale);
-        leftPanel.style.width  = `${lW}px`;
-        leftPanel.style.height = `${barH}px`;
-        leftPanel.style.backgroundSize = `${lW}px ${barH}px`;
-        leftPanel.style.transform = '';
-
-        // Center panel (330x35) — docked contiguously right of the left cluster (x=304)
-        const cW = Math.round(330 * scale);
-        const cH = Math.round(35  * scale);
-        centerPanel.style.width  = `${cW}px`;
-        centerPanel.style.height = `${cH}px`;
-        centerPanel.style.left   = `${lW}px`;
-        centerPanel.style.backgroundSize = `${cW}px ${cH}px`;
-        centerPanel.style.transform = '';
-
-        // Right panel (245x35) — docked contiguously right of the center panel (x=304+330=634)
-        const rW = Math.round(245 * scale);
-        const rH = Math.round(35  * scale);
-        rightPanel.style.width  = `${rW}px`;
-        rightPanel.style.height = `${rH}px`;
-        rightPanel.style.left   = `${lW + cW}px`;
-        rightPanel.style.right  = 'auto';
-        rightPanel.style.backgroundSize = `${rW}px ${rH}px`;
-        rightPanel.style.transform = '';
-
-        // Scale all buttons and meters inside bottom panels
-        this.scaleButtonsIn(leftPanel,   scale);
-        this.scaleButtonsIn(centerPanel, scale);
-        this.scaleButtonsIn(rightPanel,  scale);
-
-        if (this.zooMeter)    this.zooMeter.setScale(scale);
-        if (this.animalMeter) this.animalMeter.setScale(scale);
-        if (this.guestMeter)  this.guestMeter.setScale(scale);
-
-        if (this.moneyDisplay) {
-            this.moneyDisplay.style.left     = `${Math.round(170 * scale)}px`;
-            this.moneyDisplay.style.top      = `${Math.round(9   * scale)}px`;
-            this.moneyDisplay.style.fontSize = `${Math.round(14  * scale)}px`;
-        }
-        if (this.dateDisplay) {
-            this.dateDisplay.style.left     = `${Math.round(90 * scale)}px`;
-            this.dateDisplay.style.top      = `${Math.round(9  * scale)}px`;
-            this.dateDisplay.style.fontSize = `${Math.round(12 * scale)}px`;
+    private buildLeftBar() {
+        // Buy tools at top
+        for (const [id, path] of [
+            ['BuyAnimal', './assets/ui/buyanim'], ['BuyHabitat', './assets/ui/habitat'],
+            ['BuyObject', './assets/ui/buyobj'], ['BuyStaff', './assets/ui/person'],
+        ] as [HUDButtonID, string][]) {
+            this.leftBar.appendChild(this.makeButton(id, path));
         }
 
-        if (this.onResizeCallback) this.onResizeCallback(leftW, barH);
+        const spacer = document.createElement('div');
+        spacer.className = 'zt-spacer';
+        this.leftBar.appendChild(spacer);
+
+        // Management tools at bottom
+        for (const [id, path] of [
+            ['Undo', './assets/ui/undo'], ['Bulldoze', './assets/ui/bdoz'],
+            ['Messages', './assets/ui/msgs'], ['Research', './assets/ui/resr'],
+            ['Options', './assets/ui/gameopt'],
+        ] as [HUDButtonID, string][]) {
+            this.leftBar.appendChild(this.makeButton(id, path));
+        }
+    }
+
+    private buildBottomBar() {
+        // --- Left group: minimap + camera/time controls ---
+        const leftGroup = document.createElement('div');
+        leftGroup.className = 'zt-group';
+
+        const minimap = document.createElement('canvas');
+        minimap.id = 'zt-minimap';
+        minimap.width = 139;
+        minimap.height = 69;
+        leftGroup.appendChild(minimap);
+
+        for (const [id, path] of [
+            ['ZoomIn', './assets/ui/zoomin'], ['ZoomOut', './assets/ui/zoomout'],
+            ['RotL', './assets/ui/rotl'], ['RotR', './assets/ui/rotr'],
+            ['Snapshot', './assets/ui/snap'], ['Pause', './assets/ui/pause'], ['Play', './assets/ui/play'],
+        ] as [HUDButtonID, string][]) {
+            leftGroup.appendChild(this.makeButton(id, path));
+        }
+
+        // --- Center group: zoo status + date + money ---
+        const centerGroup = document.createElement('div');
+        centerGroup.className = 'zt-group center';
+        centerGroup.appendChild(this.makeButton('ZooStatus', './assets/ui/zstat'));
+        const zooMeter = new StatusMeter(centerGroup);
+
+        const date = document.createElement('div');
+        date.className = 'zt-date';
+        date.textContent = 'January Year 1';
+        centerGroup.appendChild(date);
+
+        const money = document.createElement('div');
+        money.className = 'zt-money';
+        money.textContent = '$0';
+        centerGroup.appendChild(money);
+
+        // --- Right group: status readouts ---
+        const rightGroup = document.createElement('div');
+        rightGroup.className = 'zt-group';
+        rightGroup.appendChild(this.makeButton('AnimalStatus', './assets/ui/astat'));
+        const animalMeter = new StatusMeter(rightGroup);
+        rightGroup.appendChild(this.makeButton('GuestStatus', './assets/ui/gstat'));
+        const guestMeter = new StatusMeter(rightGroup);
+        rightGroup.appendChild(this.makeButton('HabitatStatus', './assets/ui/hstat'));
+        rightGroup.appendChild(this.makeButton('StaffStatus', './assets/ui/staff'));
+
+        this.bottomBar.appendChild(leftGroup);
+        this.bottomBar.appendChild(centerGroup);
+        this.bottomBar.appendChild(rightGroup);
+
+        return { money, date, minimap, zooMeter, animalMeter, guestMeter };
     }
 
     public onResize(callback: (leftW: number, bottomH: number) => void) {
         this.onResizeCallback = callback;
-    }
-
-    private scaleButtonsIn(parent: HTMLElement, scale: number) {
-        for (const child of Array.from(parent.children) as HTMLElement[]) {
-            if (!child.dataset.origW) continue;
-            const w = Math.round(Number(child.dataset.origW) * scale);
-            const h = Math.round(Number(child.dataset.origH) * scale);
-            const x = Math.round(Number(child.dataset.origX) * scale);
-            const y = Math.round(Number(child.dataset.origY) * scale);
-            child.style.left   = `${x}px`;
-            child.style.top    = `${y}px`;
-            child.style.width  = `${w}px`;
-            child.style.height = `${h}px`;
-            if (!(child instanceof HTMLCanvasElement)) {
-                child.style.backgroundSize = `${w}px ${h}px`;
-            }
-        }
-    }
-
-    private applyStyles() {
-        Object.assign(this.container.style, {
-            position: 'absolute',
-            top: '0',
-            left: '0',
-            width: '100vw',
-            height: '100vh',
-            pointerEvents: 'none',
-            zIndex: '2000'
-        });
-    }
-
-    private createLeftBar(): HTMLElement {
-        // backgnd1: 33x478, backgnd2: 33x122 — total left bar is 33px wide
-        const bar = document.createElement('div');
-        Object.assign(bar.style, {
-            position: 'absolute',
-            top: '0',
-            left: '0',
-            width: '33px',
-            height: '100vh',
-            background: "url('./assets/ui/bg2/N_000.png') repeat-y",
-            pointerEvents: 'auto'
-        });
-
-        const top = document.createElement('div');
-        Object.assign(top.style, {
-            position: 'absolute',
-            top: '0',
-            left: '0',
-            width: '33px',
-            height: '478px',
-            background: "url('./assets/ui/backgnd1/N_000.png') no-repeat",
-            backgroundSize: '33px 478px'
-        });
-
-        const bottom = document.createElement('div');
-        Object.assign(bottom.style, {
-            position: 'absolute',
-            bottom: '114px', // sit above the bottom bar
-            left: '0',
-            width: '33px',
-            height: '122px',
-            background: "url('./assets/ui/backgnd2/N_000.png') no-repeat",
-            backgroundSize: '33px 122px'
-        });
-
-        bar.appendChild(top);
-        bar.appendChild(bottom);
-
-        // Buy buttons: 43x43, centered in 33px bar → x = (33-43)/2 = -5, but clip so use x=0 or just left-align
-        // The original .lyt placed them overlapping the bar edge. Center them at x=-5 (they hang left into padding)
-        const buyX = -5;
-        this.addButton(top, 'BuyAnimal',  './assets/ui/buyanim', 43, 43, buyX, 14);
-        this.addButton(top, 'BuyHabitat', './assets/ui/habitat',  43, 43, buyX, 62);
-        this.addButton(top, 'BuyObject',  './assets/ui/buyobj',   43, 43, buyX, 110);
-        this.addButton(top, 'BuyStaff',   './assets/ui/person',   43, 43, buyX, 158);
-
-        // Tool buttons: 35x31, centered → x = (33-35)/2 = -1
-        const toolX = -1;
-        this.addButton(top, 'Undo',     './assets/ui/undo',    35, 31, toolX, 258);
-        this.addButton(top, 'Bulldoze', './assets/ui/bdoz',    35, 31, toolX, 293);
-        this.addButton(top, 'Messages', './assets/ui/msgs',    35, 31, toolX, 328);
-        this.addButton(top, 'Research', './assets/ui/resr',    35, 31, toolX, 363);
-        this.addButton(top, 'Options',  './assets/ui/gameopt', 35, 31, toolX, 433);
-
-        return bar;
-    }
-
-    private createBottomBar(): HTMLElement {
-        // backgnd3: 304x114, backgnd4: 330x35, backgnd5: 245x35
-        const bar = document.createElement('div');
-        Object.assign(bar.style, {
-            position: 'absolute',
-            bottom: '0',
-            left: '0',
-            width: '100vw',
-            height: '114px',
-            // bg3 is only 1x35px (a bottom lip strip), so it can't fill the 114px bar.
-            // Fill the void with the panel frame's olive colour so the bar reads as one solid piece.
-            background: "#313c33 url('./assets/ui/bg3/N_000.png') repeat-x bottom",
-            backgroundSize: 'auto 35px',
-            pointerEvents: 'auto'
-        });
-
-        const left = document.createElement('div');
-        Object.assign(left.style, {
-            position: 'absolute',
-            bottom: '0',
-            left: '0',
-            width: '304px',
-            height: '114px',
-            background: "url('./assets/ui/backgnd3/N_000.png') no-repeat",
-            backgroundSize: '304px 114px'
-        });
-
-        const center = document.createElement('div');
-        Object.assign(center.style, {
-            position: 'absolute',
-            bottom: '0',
-            left: '304px',
-            width: '330px',
-            height: '35px',
-            background: "url('./assets/ui/backgnd4/N_000.png') no-repeat",
-            backgroundSize: '330px 35px'
-        });
-
-        const right = document.createElement('div');
-        Object.assign(right.style, {
-            position: 'absolute',
-            bottom: '0',
-            left: '634px',
-            width: '245px',
-            height: '35px',
-            background: "url('./assets/ui/backgnd5/N_000.png') no-repeat",
-            backgroundSize: '245px 35px'
-        });
-
-        bar.appendChild(left);
-        bar.appendChild(center);
-        bar.appendChild(right);
-
-        // Minimap canvas — positioned per main.lyt (anchor=backgnd2, x=10 y=44 dx=139 dy=69)
-        this.minimapCanvas = document.createElement('canvas');
-        this.minimapCanvas.width  = 139;
-        this.minimapCanvas.height = 69;
-        this.minimapCanvas.dataset.origW = '139';
-        this.minimapCanvas.dataset.origH = '69';
-        this.minimapCanvas.dataset.origX = '10';
-        this.minimapCanvas.dataset.origY = '44';
-        Object.assign(this.minimapCanvas.style, {
-            position: 'absolute',
-            left: '10px',
-            top: '44px',
-            width: '139px',
-            height: '69px',
-            imageRendering: 'pixelated'
-        });
-        left.appendChild(this.minimapCanvas);
-
-        // Controls per main.lyt coordinates (all anchored to backgnd2/left panel origin)
-        this.addButton(left, 'ZoomIn',   './assets/ui/zoomin',  36, 22, 14, 17);
-        this.addButton(left, 'ZoomOut',  './assets/ui/zoomout', 21, 25,  5, 24);
-        this.addButton(left, 'RotR',     './assets/ui/rotr',    31, 32,  6, 40);
-        this.addButton(left, 'RotL',     './assets/ui/rotl',    46, 30, 26, 27);
-        this.addButton(left, 'Snapshot', './assets/ui/snap',    51, 31,  5, 86);
-        this.addButton(left, 'Pause',    './assets/ui/pause',   35, 31, 150, 80);
-        this.addButton(left, 'Play',     './assets/ui/play',    35, 31, 150, 80);
-
-        // Center: date + money + zoo status meter
-        // zstat: 32x32
-        this.addButton(center, 'ZooStatus', './assets/ui/zstat', 32, 32, 2, 2);
-        this.zooMeter = new StatusMeter(center, 36, 11);
-
-        this.moneyDisplay = document.createElement('div');
-        Object.assign(this.moneyDisplay.style, {
-            position: 'absolute',
-            left: '170px',
-            top: '9px',
-            width: '120px',
-            textAlign: 'center',
-            color: '#FFD43C',
-            fontSize: '14px',
-            fontFamily: 'monospace',
-            fontWeight: 'bold',
-            textShadow: '1px 1px 1px black'
-        });
-        this.moneyDisplay.innerText = '$0';
-        center.appendChild(this.moneyDisplay);
-
-        this.dateDisplay = document.createElement('div');
-        Object.assign(this.dateDisplay.style, {
-            position: 'absolute',
-            left: '90px',
-            top: '9px',
-            width: '80px',
-            textAlign: 'center',
-            color: '#FFD43C',
-            fontSize: '12px',
-            fontFamily: 'monospace',
-            fontWeight: 'bold',
-            textShadow: '1px 1px 1px black'
-        });
-        this.dateDisplay.innerText = 'January Year 1';
-        center.appendChild(this.dateDisplay);
-
-        // Right: astat, gstat, hstat, staff — all 32x32, spaced evenly in 245px
-        this.addButton(right, 'AnimalStatus',  './assets/ui/astat', 32, 32,   2, 2);
-        this.animalMeter = new StatusMeter(right, 36, 11);
-
-        this.addButton(right, 'GuestStatus',   './assets/ui/gstat', 32, 32,  65, 2);
-        this.guestMeter = new StatusMeter(right, 99, 11);
-
-        this.addButton(right, 'HabitatStatus', './assets/ui/hstat', 32, 32, 130, 2);
-        this.addButton(right, 'StaffStatus',   './assets/ui/staff', 32, 32, 195, 2);
-
-        return bar;
-    }
-
-    private addButton(parent: HTMLElement, id: HUDButtonID, assetPath: string, w: number, h: number, x: number, y: number): HTMLElement {
-        const btn = document.createElement('div');
-        btn.id = id;
-        btn.dataset.origW = String(w);
-        btn.dataset.origH = String(h);
-        btn.dataset.origX = String(x);
-        btn.dataset.origY = String(y);
-        btn.dataset.assetPath = assetPath;
-        Object.assign(btn.style, {
-            position: 'absolute',
-            left: `${x}px`,
-            top: `${y}px`,
-            width: `${w}px`,
-            height: `${h}px`,
-            background: `url('${assetPath}/N_000.png') no-repeat`,
-            backgroundSize: `${w}px ${h}px`,
-            cursor: 'pointer'
-        });
-
-        btn.onmouseover = () => { btn.style.background = `url('${assetPath}/h_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
-        btn.onmouseout  = () => { btn.style.background = `url('${assetPath}/N_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
-        btn.onmousedown = () => { btn.style.background = `url('${assetPath}/s_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
-        btn.onmouseup   = () => { btn.style.background = `url('${assetPath}/h_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
-
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            this.onButtonClickCallback(id);
-        };
-
-        parent.appendChild(btn);
-        return btn;
-    }
-
-    public updateStatus(type: 'zoo' | 'animal' | 'guest', value: number) {
-        if (type === 'zoo' && this.zooMeter) this.zooMeter.setValue(value);
-        if (type === 'animal' && this.animalMeter) this.animalMeter.setValue(value);
-        if (type === 'guest' && this.guestMeter) this.guestMeter.setValue(value);
+        this.reportSize();
     }
 
     public onButtonClick(callback: (id: HUDButtonID) => void) {
         this.onButtonClickCallback = callback;
     }
 
+    public updateStatus(type: 'zoo' | 'animal' | 'guest', value: number) {
+        if (type === 'zoo') this.zooMeter.setValue(value);
+        else if (type === 'animal') this.animalMeter.setValue(value);
+        else if (type === 'guest') this.guestMeter.setValue(value);
+    }
+
     public setMoney(amount: number) {
-        if (this.moneyDisplay) {
-            this.moneyDisplay.innerText = `$${amount.toLocaleString()}`;
-        }
+        this.moneyDisplay.textContent = `$${amount.toLocaleString()}`;
     }
 
     public setDate(date: string) {
-        if (this.dateDisplay) {
-            this.dateDisplay.innerText = date;
-        }
+        this.dateDisplay.textContent = date;
     }
 
     public updateMinimap(terrainData: Uint8Array, gridW: number, gridH: number) {
-        if (!this.minimapCanvas) return;
         const ctx = this.minimapCanvas.getContext('2d');
         if (!ctx) return;
 
@@ -406,7 +179,6 @@ export class HUD {
         const mH = this.minimapCanvas.height;
         ctx.clearRect(0, 0, mW, mH);
 
-        // Terrain colours matching GridRenderer's atlas palette
         const colours: Record<number, string> = {
             0: '#4a7c3f', 1: '#c8b560', 2: '#8b6340', 3: '#2060a0',
             4: '#b0a955', 5: '#3d6b28', 6: '#7a5c44', 7: '#8a8a8a',
@@ -414,7 +186,6 @@ export class HUD {
             12: '#47723c', 13: '#b6b4a8', 14: '#46464a', 15: '#8a7b52'
         };
 
-        // Draw isometric diamond: each tile maps to a pixel in iso projection
         const tileW = mW / gridW;
         const tileH = mH / gridH;
 
@@ -422,7 +193,6 @@ export class HUD {
             for (let gx = 0; gx < gridW; gx++) {
                 const type = terrainData[gz * gridW + gx];
                 ctx.fillStyle = colours[type] ?? '#4a7c3f';
-                // Iso projection: x = (gx - gz + gridH) * mW/(gridW+gridH), y = (gx + gz) * mH/(gridW+gridH)*0.5
                 const ix = ((gx - gz + gridH) / (gridW + gridH)) * mW;
                 const iy = ((gx + gz) / (gridW + gridH)) * mH;
                 ctx.fillRect(Math.round(ix), Math.round(iy), Math.ceil(tileW + 1), Math.ceil(tileH + 1));
@@ -436,5 +206,6 @@ export class HUD {
 
     public show() {
         this.container.style.display = 'block';
+        requestAnimationFrame(() => this.reportSize());
     }
 }
