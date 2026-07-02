@@ -1,213 +1,121 @@
 import { EconomyManager } from '../core/EconomyManager';
 
 export class FinancePanel {
-    private container: HTMLElement;
+    private backdrop: HTMLElement;
     private content: HTMLElement;
+    private feeValue: HTMLElement;
+    private concessionValue: HTMLElement;
 
     constructor(private economyManager: EconomyManager) {
-        this.container = document.createElement('div');
-        this.container.id = 'finance-panel';
-        this.applyStyles();
-        
-        const background = document.createElement('div');
-        Object.assign(background.style, {
-            width: '171px',
-            height: '439px',
-            background: "url('./assets/ui/objpan/N_000.png') no-repeat",
-            position: 'relative',
-            pointerEvents: 'auto'
-        });
+        this.backdrop = document.createElement('div');
+        this.backdrop.className = 'zt-modal-backdrop';
+        this.backdrop.style.display = 'none';
+        // Click outside the panel closes it.
+        this.backdrop.onclick = (e) => { if (e.target === this.backdrop) this.hide(); };
 
-        // Title
-        const title = document.createElement('div');
-        Object.assign(title.style, {
-            position: 'absolute',
-            top: '4px',
-            left: '35px',
-            width: '100px',
-            color: '#FFE4AD',
-            fontSize: '12px',
-            fontFamily: 'monospace',
-            textAlign: 'center',
-            fontWeight: 'bold'
-        });
-        title.innerText = 'FINANCES';
-        background.appendChild(title);
+        const modal = document.createElement('div');
+        modal.className = 'zt-modal zt-panel';
 
-        // Close Button
-        const closeBtn = document.createElement('div');
-        Object.assign(closeBtn.style, {
-            position: 'absolute',
-            top: '3px',
-            right: '26px',
-            width: '16px',
-            height: '16px',
-            background: "url('./assets/ui/close/N_000.png') no-repeat",
-            cursor: 'pointer'
-        });
-        closeBtn.onclick = () => this.hide();
-        background.appendChild(closeBtn);
+        const title = document.createElement('h2');
+        title.textContent = 'Finances';
+        modal.appendChild(title);
 
-        // Content Area
         this.content = document.createElement('div');
-        Object.assign(this.content.style, {
-            position: 'absolute',
-            top: '55px',
-            left: '20px',
-            width: '130px',
-            color: '#FFDA5A',
-            fontSize: '11px',
-            fontFamily: 'monospace',
-            lineHeight: '1.5'
-        });
-        background.appendChild(this.content);
+        this.content.style.fontFamily = 'monospace';
+        this.content.style.lineHeight = '1.6';
+        modal.appendChild(this.content);
 
-        // Pricing Controls
-        const pricing = document.createElement('div');
-        Object.assign(pricing.style, {
-            position: 'absolute',
-            bottom: '100px',
-            left: '20px',
-            width: '130px',
-            color: '#FFE4AD',
-            fontFamily: 'monospace',
-            fontSize: '10px'
-        });
-        pricing.textContent = 'ADMISSION FEE:';
-        
-        const feeRow = document.createElement('div');
-        Object.assign(feeRow.style, { display: 'flex', alignItems: 'center', marginTop: '5px' });
-        
-        const minus = this.createButton('-', () => {
-            this.economyManager.setAdmissionFee(this.economyManager.getAdmissionFee() - 5);
-            this.updateContent();
-        });
-        
-        this.feeValue = document.createElement('span');
-        Object.assign(this.feeValue.style, { width: '40px', textAlign: 'center', color: '#fff' });
-        
-        const plus = this.createButton('+', () => {
-            this.economyManager.setAdmissionFee(this.economyManager.getAdmissionFee() + 5);
-            this.updateContent();
-        });
+        // Pricing controls
+        const feeRow = this.priceRow('Admission Fee', () => this.stepFee(-5), () => this.stepFee(5));
+        this.feeValue = feeRow.value;
+        modal.appendChild(feeRow.row);
 
-        feeRow.appendChild(minus);
-        feeRow.appendChild(this.feeValue);
-        feeRow.appendChild(plus);
-        pricing.appendChild(feeRow);
+        const concRow = this.priceRow('Concession Price', () => this.stepConcession(-2), () => this.stepConcession(2));
+        this.concessionValue = concRow.value;
+        modal.appendChild(concRow.row);
 
-        const concessionLabel = document.createElement('div');
-        Object.assign(concessionLabel.style, { marginTop: '10px' });
-        concessionLabel.textContent = 'CONCESSION PRICE:';
-        pricing.appendChild(concessionLabel);
+        const close = document.createElement('div');
+        close.className = 'zt-menu-btn';
+        close.textContent = 'Close';
+        close.onclick = () => this.hide();
+        modal.appendChild(close);
 
-        const concessionRow = document.createElement('div');
-        Object.assign(concessionRow.style, { display: 'flex', alignItems: 'center', marginTop: '5px' });
-        
-        const cMinus = this.createButton('-', () => {
-            this.economyManager.setConcessionPrice(this.economyManager.getConcessionPrice() - 2);
-            this.updateContent();
-        });
-        
-        this.concessionValue = document.createElement('span');
-        Object.assign(this.concessionValue.style, { width: '40px', textAlign: 'center', color: '#fff' });
-        
-        const cPlus = this.createButton('+', () => {
-            this.economyManager.setConcessionPrice(this.economyManager.getConcessionPrice() + 2);
-            this.updateContent();
-        });
-
-        concessionRow.appendChild(cMinus);
-        concessionRow.appendChild(this.concessionValue);
-        concessionRow.appendChild(cPlus);
-        pricing.appendChild(concessionRow);
-
-        background.appendChild(pricing);
-
-        this.container.appendChild(background);
-        document.body.appendChild(this.container);
-        this.hide();
+        this.backdrop.appendChild(modal);
+        document.body.appendChild(this.backdrop);
     }
 
-    private feeValue: HTMLElement | null = null;
-    private concessionValue: HTMLElement | null = null;
+    private stepFee(d: number) {
+        this.economyManager.setAdmissionFee(this.economyManager.getAdmissionFee() + d);
+        this.updateContent();
+    }
+    private stepConcession(d: number) {
+        this.economyManager.setConcessionPrice(this.economyManager.getConcessionPrice() + d);
+        this.updateContent();
+    }
 
-    private createButton(text: string, onClick: () => void): HTMLElement {
+    private priceRow(label: string, onMinus: () => void, onPlus: () => void) {
+        const row = document.createElement('div');
+        Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0' });
+
+        const lbl = document.createElement('span');
+        lbl.textContent = label;
+        lbl.style.flex = '1';
+        row.appendChild(lbl);
+
+        const value = document.createElement('span');
+        Object.assign(value.style, { minWidth: '48px', textAlign: 'center', color: 'var(--zt-gold)', fontWeight: 'bold' });
+
+        row.appendChild(this.stepButton('−', onMinus));
+        row.appendChild(value);
+        row.appendChild(this.stepButton('+', onPlus));
+        return { row, value };
+    }
+
+    private stepButton(text: string, onClick: () => void): HTMLElement {
         const btn = document.createElement('div');
-        btn.innerText = text;
+        btn.textContent = text;
         Object.assign(btn.style, {
-            width: '20px',
-            height: '20px',
-            background: '#837D35',
-            color: '#000',
-            textAlign: 'center',
-            lineHeight: '20px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            borderRadius: '2px'
+            width: '28px', height: '28px', lineHeight: '28px', textAlign: 'center',
+            background: 'var(--zt-accent)', color: '#000', fontWeight: 'bold',
+            borderRadius: '4px', cursor: 'pointer', userSelect: 'none'
         });
         btn.onclick = onClick;
         return btn;
     }
 
-    private applyStyles() {
-        Object.assign(this.container.style, {
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: '4000',
-            display: 'none'
-        });
-    }
-
     public show() {
         this.updateContent();
-        this.container.style.display = 'block';
+        this.backdrop.style.display = 'flex';
     }
 
     public hide() {
-        this.container.style.display = 'none';
+        this.backdrop.style.display = 'none';
     }
 
     private updateContent() {
         const profit = this.economyManager.getMonthlyProfit();
         const cash = this.economyManager.getCash();
-        const fee = this.economyManager.getAdmissionFee();
-        const cPrice = this.economyManager.getConcessionPrice();
-        
-        if (this.feeValue) this.feeValue.innerText = `$${fee}`;
-        if (this.concessionValue) this.concessionValue.innerText = `$${cPrice}`;
+        this.feeValue.textContent = `$${this.economyManager.getAdmissionFee()}`;
+        this.concessionValue.textContent = `$${this.economyManager.getConcessionPrice()}`;
 
-        // Clear existing content safely
         this.content.textContent = '';
-        
-        // Build cash section
-        const cashSection = document.createElement('div');
-        cashSection.style.borderBottom = '1px solid #837D35';
-        cashSection.style.marginBottom = '10px';
-        cashSection.style.paddingBottom = '5px';
-        
-        cashSection.appendChild(document.createTextNode('TOTAL CASH:'));
-        cashSection.appendChild(document.createElement('br'));
-        
-        const cashAmount = document.createElement('span');
-        cashAmount.style.color = '#fff';
-        cashAmount.textContent = `$${cash.toLocaleString()}`;
-        cashSection.appendChild(cashAmount);
-        
-        // Build profit section
-        const profitSection = document.createElement('div');
-        profitSection.appendChild(document.createTextNode('MONTHLY PROFIT:'));
-        profitSection.appendChild(document.createElement('br'));
-        
-        const profitAmount = document.createElement('span');
-        profitAmount.style.color = profit >= 0 ? '#00ff00' : '#ff0000';
-        profitAmount.textContent = `$${profit.toLocaleString()}`;
-        profitSection.appendChild(profitAmount);
-        
-        // Append to content
-        this.content.appendChild(cashSection);
-        this.content.appendChild(profitSection);
+
+        const cashRow = document.createElement('div');
+        cashRow.style.marginBottom = '6px';
+        cashRow.append('Total Cash: ');
+        const cashAmt = document.createElement('b');
+        cashAmt.style.color = 'var(--zt-gold)';
+        cashAmt.textContent = `$${cash.toLocaleString()}`;
+        cashRow.appendChild(cashAmt);
+        this.content.appendChild(cashRow);
+
+        const profitRow = document.createElement('div');
+        profitRow.style.marginBottom = '10px';
+        profitRow.append('Monthly Profit: ');
+        const profitAmt = document.createElement('b');
+        profitAmt.style.color = profit >= 0 ? '#5dd35d' : '#ff5d5d';
+        profitAmt.textContent = `$${profit.toLocaleString()}`;
+        profitRow.appendChild(profitAmt);
+        this.content.appendChild(profitRow);
     }
 }

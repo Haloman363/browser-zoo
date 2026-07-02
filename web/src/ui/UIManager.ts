@@ -105,8 +105,10 @@ export class UIManager {
             padding: '8px 16px',
             fontFamily: 'monospace',
             fontSize: '16px',
-            zIndex: '4000',
-            borderRadius: '4px'
+            zIndex: '6500',
+            borderRadius: '4px',
+            border: '1px solid #ff5d5d',
+            pointerEvents: 'none'
         });
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 2500);
