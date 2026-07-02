@@ -80,19 +80,22 @@ export class HUD {
         leftPanel.style.backgroundSize = `${lW}px ${barH}px`;
         leftPanel.style.transform = '';
 
-        // Center panel (330x35) — set real scaled dimensions, flush to bottom
+        // Center panel (330x35) — docked contiguously right of the left cluster (x=304)
         const cW = Math.round(330 * scale);
         const cH = Math.round(35  * scale);
         centerPanel.style.width  = `${cW}px`;
         centerPanel.style.height = `${cH}px`;
+        centerPanel.style.left   = `${lW}px`;
         centerPanel.style.backgroundSize = `${cW}px ${cH}px`;
         centerPanel.style.transform = '';
 
-        // Right panel (245x35) — set real scaled dimensions, flush to bottom
+        // Right panel (245x35) — docked contiguously right of the center panel (x=304+330=634)
         const rW = Math.round(245 * scale);
         const rH = Math.round(35  * scale);
         rightPanel.style.width  = `${rW}px`;
         rightPanel.style.height = `${rH}px`;
+        rightPanel.style.left   = `${lW + cW}px`;
+        rightPanel.style.right  = 'auto';
         rightPanel.style.backgroundSize = `${rW}px ${rH}px`;
         rightPanel.style.transform = '';
 
@@ -240,8 +243,7 @@ export class HUD {
         Object.assign(center.style, {
             position: 'absolute',
             bottom: '0',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            left: '304px',
             width: '330px',
             height: '35px',
             background: "url('./assets/ui/backgnd4/N_000.png') no-repeat",
@@ -252,7 +254,7 @@ export class HUD {
         Object.assign(right.style, {
             position: 'absolute',
             bottom: '0',
-            right: '0',
+            left: '634px',
             width: '245px',
             height: '35px',
             background: "url('./assets/ui/backgnd5/N_000.png') no-repeat",
