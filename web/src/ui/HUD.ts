@@ -64,8 +64,10 @@ export class HUD {
         // Scale all buttons inside the left bar sections
         this.scaleButtonsIn(topSection, scale);
 
-        // Bottom bar: set real height so it occupies the right amount of space
+        // Bottom bar: set real height so it occupies the right amount of space.
+        // Scale the bg3 lip strip (native 35px) with the bar so it stays proportional.
         this.bottomBar.style.height = `${barH}px`;
+        this.bottomBar.style.backgroundSize = `auto ${Math.round(35 * scale)}px`;
 
         const leftPanel   = this.bottomBar.children[0] as HTMLElement;
         const centerPanel = this.bottomBar.children[1] as HTMLElement;
@@ -216,7 +218,10 @@ export class HUD {
             left: '0',
             width: '100vw',
             height: '114px',
-            background: "url('./assets/ui/bg3/N_000.png') repeat-x bottom",
+            // bg3 is only 1x35px (a bottom lip strip), so it can't fill the 114px bar.
+            // Fill the void with the panel frame's olive colour so the bar reads as one solid piece.
+            background: "#313c33 url('./assets/ui/bg3/N_000.png') repeat-x bottom",
+            backgroundSize: 'auto 35px',
             pointerEvents: 'auto'
         });
 
