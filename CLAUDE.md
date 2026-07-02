@@ -6,6 +6,7 @@ Requires original ZT1 `.ztd`/`.pal` files in `Gamefiles/` (not distributed).
 ## Status
 
 **Milestone 1 complete.** All 6 phases shipped. Game is playable end-to-end.
+`.zoo` map parser rewritten browser-native (commit `abbec4d`) — scenarios now render the real ZT1 maps.
 
 ## Running the game
 
@@ -40,6 +41,8 @@ npx ts-node tools/master_extract.ts
 - **Multiplayer**: PeerJS P2P — `NetworkManager`. Multiplayer submenu lives in `MainMenu.showMultiplayerSubmenu()`.
 - **Persistence**: `PersistenceManager` — named save slots + autosave in `localStorage`.
 - **Staff**: `KeeperInstance`, `MaintInstance`, `GuideInstance` — all extend `StaffInstance`. Each has a typed `.id` field.
+- **`.zoo` maps** (`ZooMapParser.ts`): browser-native parser (no Node `Buffer`). Anchors the terrain window from the object list, then maps ZT1 terrain/fence/scenery/animal codes to extracted assets. TZFBF/TZFBG magics.
+- **Sprites** (`utils/spriteLoader.ts`): BGR-corrected directional animations. Known gotcha — the HEAD-probe for frame existence gets false positives because Vite's dev-server SPA fallback returns 200 for missing files; the batch loader's fallback catches it and truncates animations to the real frame count, so it's warning noise not breakage.
 
 ## Roadmap / next ideas
 
