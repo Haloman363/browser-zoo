@@ -34,9 +34,16 @@ export class CameraControls {
     private onWheel(e: WheelEvent) {
         e.preventDefault();
         const zoomDelta = e.deltaY > 0 ? (1 - this.zoomSpeed) : (1 + this.zoomSpeed);
-        this.camera.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.camera.zoom * zoomDelta));
+        this.applyZoom(zoomDelta);
+    }
+
+    private applyZoom(factor: number) {
+        this.camera.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.camera.zoom * factor));
         this.camera.updateProjectionMatrix();
     }
+
+    public zoomIn() { this.applyZoom(1.25); }
+    public zoomOut() { this.applyZoom(0.8); }
 
     public update() {
         // Simple WASD pan

@@ -42,9 +42,27 @@ export class HUD {
         const barH  = Math.round(114 * scale);
         const leftW = Math.round(33  * scale);
 
-        // Left bar: uniform scale from top-left (position:absolute top:0, so transform works fine)
-        this.leftBar.style.transform       = `scale(${scale})`;
-        this.leftBar.style.transformOrigin = 'top left';
+        // Left bar: set real pixel width so layout is correct (no CSS transform)
+        this.leftBar.style.transform = '';
+        this.leftBar.style.width = `${leftW}px`;
+
+        const topSection    = this.leftBar.children[0] as HTMLElement;
+        const bottomSection = this.leftBar.children[1] as HTMLElement;
+
+        const topH = Math.round(478 * scale);
+        topSection.style.width  = `${leftW}px`;
+        topSection.style.height = `${topH}px`;
+        topSection.style.backgroundSize = `${leftW}px ${topH}px`;
+
+        const botSecH = Math.round(122 * scale);
+        const botSecBottom = Math.round(114 * scale);
+        bottomSection.style.width  = `${leftW}px`;
+        bottomSection.style.height = `${botSecH}px`;
+        bottomSection.style.bottom = `${botSecBottom}px`;
+        bottomSection.style.backgroundSize = `${leftW}px ${botSecH}px`;
+
+        // Scale all buttons inside the left bar sections
+        this.scaleButtonsIn(topSection, scale);
 
         // Bottom bar: set real height so it occupies the right amount of space
         this.bottomBar.style.height = `${barH}px`;
@@ -336,10 +354,10 @@ export class HUD {
             cursor: 'pointer'
         });
 
-        btn.onmouseover = () => { btn.style.background = `url('${assetPath}/H_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
+        btn.onmouseover = () => { btn.style.background = `url('${assetPath}/h_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
         btn.onmouseout  = () => { btn.style.background = `url('${assetPath}/N_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
-        btn.onmousedown = () => { btn.style.background = `url('${assetPath}/S_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
-        btn.onmouseup   = () => { btn.style.background = `url('${assetPath}/H_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
+        btn.onmousedown = () => { btn.style.background = `url('${assetPath}/s_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
+        btn.onmouseup   = () => { btn.style.background = `url('${assetPath}/h_000.png') no-repeat`; btn.style.backgroundSize = `${w}px ${h}px`; };
 
         btn.onclick = (e) => {
             e.stopPropagation();
@@ -381,8 +399,13 @@ export class HUD {
         const mH = this.minimapCanvas.height;
         ctx.clearRect(0, 0, mW, mH);
 
-        // Terrain colours matching the game's colour map
-        const colours: Record<number, string> = { 0: '#4a7c3f', 1: '#c8b560', 2: '#8b6340', 3: '#2060a0' };
+        // Terrain colours matching GridRenderer's atlas palette
+        const colours: Record<number, string> = {
+            0: '#4a7c3f', 1: '#c8b560', 2: '#8b6340', 3: '#2060a0',
+            4: '#b0a955', 5: '#3d6b28', 6: '#7a5c44', 7: '#8a8a8a',
+            8: '#a09a88', 9: '#e8ecf2', 10: '#1e4e9c', 11: '#6b8f3f',
+            12: '#47723c', 13: '#b6b4a8', 14: '#46464a', 15: '#8a7b52'
+        };
 
         // Draw isometric diamond: each tile maps to a pixel in iso projection
         const tileW = mW / gridW;

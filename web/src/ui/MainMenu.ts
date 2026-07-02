@@ -4,6 +4,8 @@ export class MainMenu {
     private scenarioWrapper: HTMLElement | null = null;
     private onPlayCallback: (mode: 'scenario' | 'freeform', scenarioId?: string) => void = () => {};
     private onNetworkCallback: (action: 'host' | 'join') => void = () => {};
+    private onLoadCallback: () => void = () => {};
+    private onContinueCallback: () => void = () => {};
 
     constructor() {
         this.container = document.createElement('div');
@@ -41,28 +43,33 @@ export class MainMenu {
         this.menuWrapper.textContent = '';
         Object.assign(this.menuWrapper.style, {
             position: 'relative',
-            width: '800px',
-            height: '600px'
+            width: 'min(800px, 100vw)',
+            height: 'min(600px, 100vh)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingBottom: '40px',
+            boxSizing: 'border-box',
+            overflowY: 'auto'
         });
 
         const buttons = [
-            { id: 'PlayScenario', text: 'New Scenario Game', y: 270, dx: 320, action: () => this.showScenarios() },
-            { id: 'PlayFreeform', text: 'New Freeform Game', y: 330, dx: 320, mode: 'freeform' as const },
-            { id: 'Multiplayer', text: 'Multiplayer', y: 390, dx: 320, action: () => this.showMultiplayerSubmenu() },
-            { id: 'LoadGame', text: 'Load Game', y: 450, dx: 320 },
-            { id: 'ContinueGame', text: 'Continue Game', y: 510, dx: 320 },
+            { id: 'PlayScenario', text: 'New Scenario Game', action: () => this.showScenarios() },
+            { id: 'PlayFreeform', text: 'New Freeform Game', mode: 'freeform' as const },
+            { id: 'Multiplayer', text: 'Multiplayer', action: () => this.showMultiplayerSubmenu() },
+            { id: 'LoadGame', text: 'Load Game', action: () => this.onLoadCallback() },
+            { id: 'ContinueGame', text: 'Continue Game', action: () => this.onContinueCallback() },
         ];
 
         buttons.forEach(btnInfo => {
             const btn = document.createElement('div');
             btn.innerText = btnInfo.text;
             Object.assign(btn.style, {
-                position: 'absolute',
-                top: `${btnInfo.y}px`,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: `${btnInfo.dx}px`,
+                width: '320px',
+                maxWidth: '90%',
                 padding: '10px',
+                margin: '4px 0',
                 textAlign: 'center',
                 color: '#FFBA10',
                 background: 'rgba(131, 125, 53, 0.5)',
@@ -71,7 +78,8 @@ export class MainMenu {
                 fontWeight: 'bold',
                 fontSize: '18px',
                 textShadow: '2px 2px 2px black',
-                transition: 'all 0.1s'
+                transition: 'all 0.1s',
+                flexShrink: '0'
             });
 
             btn.onmouseover = () => {
@@ -100,15 +108,18 @@ export class MainMenu {
         const submenuWrapper = document.createElement('div');
         Object.assign(submenuWrapper.style, {
             position: 'relative',
-            width: '800px',
-            height: '600px',
+            width: 'min(800px, 100vw)',
+            height: 'min(600px, 100vh)',
             background: 'rgba(0,0,0,0.85)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            overflowY: 'auto',
             color: 'white',
-            fontFamily: 'Tahoma, Verdana, sans-serif'
+            fontFamily: 'Tahoma, Verdana, sans-serif',
+            boxSizing: 'border-box',
+            padding: '20px 10px'
         });
 
         const title = document.createElement('h2');
@@ -171,15 +182,18 @@ export class MainMenu {
         this.scenarioWrapper = document.createElement('div');
         Object.assign(this.scenarioWrapper.style, {
             position: 'relative',
-            width: '800px',
-            height: '600px',
+            width: 'min(800px, 100vw)',
+            height: 'min(600px, 100vh)',
             background: "rgba(0,0,0,0.8)",
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-start',
+            overflowY: 'auto',
             color: 'white',
-            fontFamily: 'monospace'
+            fontFamily: 'monospace',
+            boxSizing: 'border-box',
+            padding: '20px 10px'
         });
 
         const title = document.createElement('h1');
@@ -190,7 +204,17 @@ export class MainMenu {
             { id: 'scn01', name: 'Tutorial 1: The Basics' },
             { id: 'scn02', name: 'Tutorial 2: Animal Care' },
             { id: 'scn05', name: 'Small Village Zoo' },
-            { id: 'med_bch', name: 'Island Resort' }
+            { id: 'beach', name: 'Beach Zoo' },
+            { id: 'lagoon', name: 'Lagoon' },
+            { id: 'svalley', name: 'Scenic Valley' },
+            { id: 'tundra', name: 'Tundra' },
+            { id: 'cratlake', name: 'Crater Lake' },
+            { id: 'highland', name: 'Highlands' },
+            { id: 'jungriv', name: 'Jungle River' },
+            { id: 'nile', name: 'River Nile' },
+            { id: 'med_bch', name: 'Island Resort' },
+            { id: 'dinolrg', name: 'Dino Park (Large)' },
+            { id: 'lunar', name: 'Lunar Zoo' }
         ];
 
         scenarios.forEach(s => {
@@ -226,6 +250,14 @@ export class MainMenu {
 
     public onNetworkAction(callback: (action: 'host' | 'join') => void) {
         this.onNetworkCallback = callback;
+    }
+
+    public onLoad(callback: () => void) {
+        this.onLoadCallback = callback;
+    }
+
+    public onContinue(callback: () => void) {
+        this.onContinueCallback = callback;
     }
 
     public hide() {

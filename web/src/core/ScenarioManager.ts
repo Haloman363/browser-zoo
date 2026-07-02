@@ -22,7 +22,7 @@ export class ScenarioManager {
                     id: 'BUY_TIGER',
                     description: 'Place a Bengal Tiger in an exhibit.',
                     completed: false,
-                    check: (state) => state.animals.some((a: any) => a.id === 'stiger')
+                    check: (state) => state.animals.some((a: any) => a.id === 'tiger')
                 },
                 {
                     id: 'HIRE_KEEPER',

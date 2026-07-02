@@ -1,11 +1,7 @@
 import * as THREE from 'three';
 import { Pathfinder, Tile, BlockedCheck } from '../core/Pathfinder';
 import { VisualEffectManager } from './VisualEffectManager';
-
-interface AnimationState {
-    materials: THREE.SpriteMaterial[];
-    frameDuration: number;
-}
+import { loadDirectionalAnims, AnimationState, PX_TO_WORLD } from '../utils/spriteLoader';
 
 export type StaffType = 'keeper' | 'maint' | 'guide';
 
@@ -43,19 +39,22 @@ export abstract class StaffInstance {
         this.shadow.rotation.x = -Math.PI / 2;
         this.shadow.position.y = 0.01;
         this.scene.add(this.shadow);
+
+        const p = this.getTileWorldPos(this.currentTile);
+        this.setPosition(p.x, 0, p.z);
     }
 
     setPosition(x: number, y: number, z: number) {
-        const scale = 0.35;
+        const scale = PX_TO_WORLD;
         const img = this.sprite.material.map?.image;
         if (img) {
             this.sprite.scale.set(img.width * scale, img.height * scale, 1);
             this.sprite.position.set(x, y + (img.height * scale) / 2, z);
-            this.sprite.renderOrder = Math.floor(z * 100); 
-            
-            // Sync shadow
-            this.shadow.position.set(x, 0.01, z);
+            this.sprite.renderOrder = Math.floor(z * 100);
+        } else {
+            this.sprite.position.set(x, y + 0.5, z);
         }
+        this.shadow.position.set(x, 0.01, z);
     }
 
     protected updateDirection(from: Tile, to: Tile) {
@@ -263,53 +262,23 @@ export class StaffManager {
     constructor(private scene: THREE.Scene, private pathfinder: Pathfinder) {}
 
     public async init() {
-        await this.loadStaffType('keeper', 'walk');
-        await this.loadStaffType('maint', 'walk');
-        await this.loadStaffType('tour', 'walk');
+        await Promise.all([
+            this.loadStaffType('keeper', 'walk'),
+            this.loadStaffType('maint', 'walk'),
+            this.loadStaffType('guide', 'walk')
+        ]);
     }
 
     private async loadStaffType(staffId: string, animation: string) {
-        const directions = ['n', 'ne', 'e', 'se', 's'];
-        const anims: Record<string, AnimationState> = {};
-        const texLoader = new THREE.TextureLoader();
-
-        for (const dir of directions) {
-            const frames: THREE.SpriteMaterial[] = [];
-            let frameIndex = 0;
-            while (frameIndex < 32) {
-                const frameNum = frameIndex.toString().padStart(3, '0');
-                const url = `/assets/${staffId}/m/${animation}/${dir}/${dir}_${frameNum}.png`;
-                try {
-                    const check = await fetch(url, { method: 'HEAD' });
-                    if (!check.ok) break;
-                    const tex = await texLoader.loadAsync(url);
-                    tex.magFilter = THREE.NearestFilter;
-                    tex.minFilter = THREE.NearestFilter;
-                    frames.push(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-                    frameIndex++;
-                } catch (e) { break; }
-            }
-            if (frames.length > 0) anims[dir.toUpperCase()] = { materials: frames, frameDuration: 1000/12 };
-        }
-        
-        const mirrorMap: Record<string, string> = { 'SW': 'SE', 'W': 'E', 'NW': 'NE' };
-        for (const [target, source] of Object.entries(mirrorMap)) {
-            if (anims[source]) {
-                const sourceState = anims[source];
-                const mirrored = sourceState.materials.map(m => {
-                    const t = m.map!.clone();
-                    t.wrapS = THREE.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1;
-                    return new THREE.SpriteMaterial({ map: t, transparent: true });
-                });
-                anims[target] = { materials: mirrored, frameDuration: anims[source].frameDuration };
-            }
-        }
+        // Tour guide sprites live in the 'tour' asset folder
+        const folder = staffId === 'guide' ? 'tour' : staffId;
+        const anims = await loadDirectionalAnims(`/assets/${folder}/m/${animation}`, 32);
         this.animationCaches.set(`${staffId}:${animation}`, anims);
     }
 
     public hire(type: StaffType, x: number, y: number) {
         const anims = this.animationCaches.get(`${type}:walk`);
-        if (!anims) return;
+        if (!anims || Object.keys(anims).length === 0) return;
 
         let instance: StaffInstance;
         if (type === 'maint') {

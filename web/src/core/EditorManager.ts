@@ -15,7 +15,7 @@ import { PersistenceManager, ZooSaveData } from './PersistenceManager';
 import { ZooMapParser, ParsedMap } from './ZooMapParser';
 import { AudioManager } from './AudioManager';
 
-export type EditorMode = 'select' | 'place_animal' | 'paint_terrain' | 'place_scenery' | 'place_fence' | 'paint_path' | 'hire_staff';
+export type EditorMode = 'select' | 'place_animal' | 'paint_terrain' | 'place_scenery' | 'place_fence' | 'paint_path' | 'hire_staff' | 'bulldoze';
 
 interface ManagedAnimal {
     id: string;
@@ -34,6 +34,7 @@ interface ManagedScenery {
 export class EditorManager {
     private currentMode: EditorMode = 'select';
     private currentSelectedId: string | null = null;
+    private currentCost: number = 0;
     private currentTerrainType: TerrainType = TerrainType.Grass;
     private currentPathType: PathType = PathType.None;
     private animals: ManagedAnimal[] = [];
@@ -144,16 +145,16 @@ export class EditorManager {
                 } else if (ent.type === 'scenery') {
                     await this.placeScenery(ent.id, ent.x, ent.y);
                 } else if (ent.type === 'fence') {
-                    // Just pick a side for now since parsing edge sides is hard
-                    await this.fenceManager.placeFence(ent.x, ent.y, 'n', ent.id);
+                    await this.fenceManager.placeFence(ent.x, ent.y, ent.side ?? 'n', ent.id);
                 }
             } catch(e) { console.warn(`Failed to place ${ent.id}:`, e); }
         }
         this.exhibitManager.updateExhibits();
     }
 
-    public selectAnimalForPlacement(id: string) {
+    public selectAnimalForPlacement(id: string, cost: number = 500) {
         this.currentSelectedId = id;
+        this.currentCost = cost;
         this.setMode('place_animal');
     }
 
@@ -178,18 +179,22 @@ export class EditorManager {
         this.setMode('paint_path');
     }
 
-    public selectSceneryForPlacement(id: string) {
+    public selectSceneryForPlacement(id: string, cost: number = 100) {
         this.currentSelectedId = id;
+        this.currentCost = cost;
         this.setMode('place_scenery');
     }
 
-    public selectFenceForPlacement(id: string) {
+    public selectFenceForPlacement(id: string, cost: number = 50) {
         this.currentSelectedId = id;
+        this.currentCost = cost;
         this.setMode('place_fence');
     }
 
-    public selectStaffForHiring(id: string) {
+    public selectStaffForHiring(id: string, cost?: number) {
         this.currentSelectedId = id;
+        const costMap: Record<string, number> = { 'keeper': 800, 'maint': 500, 'guide': 600 };
+        this.currentCost = cost ?? costMap[id] ?? 500;
         this.setMode('hire_staff');
     }
 
@@ -199,12 +204,18 @@ export class EditorManager {
         const costs = this.economyManager.getCosts();
 
         if (this.currentMode === 'place_animal' && this.currentSelectedId) {
-            if (this.economyManager.subtractCash(costs.animal)) {
-                await this.placeAnimal(this.currentSelectedId, tile.x, tile.y);
-                this.broadcastAction('place_animal', { id: this.currentSelectedId, x: tile.x, y: tile.y });
+            if (this.economyManager.subtractCash(this.currentCost || costs.animal, 'animals')) {
+                const placed = await this.placeAnimal(this.currentSelectedId, tile.x, tile.y);
+                if (placed) {
+                    this.broadcastAction('place_animal', { id: this.currentSelectedId, x: tile.x, y: tile.y });
+                } else {
+                    this.economyManager.addCash(this.currentCost || costs.animal, 'animals'); // refund failed placement
+                }
             } else {
                 this.uiManager.showError('Insufficient funds for Animal!');
             }
+        } else if (this.currentMode === 'bulldoze') {
+            this.bulldozeTile(tile.x, tile.y);
         } else if (this.currentMode === 'paint_terrain') {
             if (this.terrainManager.getTile(tile.x, tile.y) !== this.currentTerrainType) {
                 if (this.economyManager.subtractCash(costs.terrain)) {
@@ -224,7 +235,7 @@ export class EditorManager {
                 }
             }
         } else if (this.currentMode === 'place_scenery' && this.currentSelectedId) {
-            if (this.economyManager.subtractCash(costs.scenery)) {
+            if (this.economyManager.subtractCash(this.currentCost || costs.scenery)) {
                 await this.placeScenery(this.currentSelectedId, tile.x, tile.y);
                 this.broadcastAction('place_scenery', { id: this.currentSelectedId, x: tile.x, y: tile.y });
             } else {
@@ -233,7 +244,7 @@ export class EditorManager {
         } else if (this.currentMode === 'place_fence' && this.currentSelectedId && raycaster) {
             const side = this.getNearestSide(tile, raycaster);
             if (!this.fenceManager.isEdgeBlocked(tile.x, tile.y, side)) {
-                if (this.economyManager.subtractCash(costs.fence)) {
+                if (this.economyManager.subtractCash(this.currentCost || costs.fence)) {
                     await this.fenceManager.placeFence(tile.x, tile.y, side, this.currentSelectedId);
                     this.exhibitManager.updateExhibits();
                     this.broadcastAction('place_fence', { id: this.currentSelectedId, x: tile.x, y: tile.y, side });
@@ -242,14 +253,38 @@ export class EditorManager {
                 }
             }
         } else if (this.currentMode === 'hire_staff' && this.currentSelectedId) {
-            const costMap: Record<string, number> = { 'keeper': 800, 'maint': 500, 'guide': 600 };
-            const hireCost = costMap[this.currentSelectedId] || 500;
+            const hireCost = this.currentCost || 500;
             if (this.economyManager.subtractCash(hireCost, 'salaries')) {
                 this.staffManager.hire(this.currentSelectedId as any, tile.x, tile.y);
                 // Staff not synced yet for simplicity
             } else {
                 this.uiManager.showError(`Insufficient funds for ${this.currentSelectedId}!`);
             }
+        }
+    }
+
+    private bulldozeTile(x: number, y: number) {
+        const ai = this.animals.findIndex(a => {
+            const t = (a.instance as any).currentTile;
+            return t && t.x === x && t.y === y;
+        });
+        if (ai >= 0) {
+            this.animals[ai].instance.destroy();
+            this.animals.splice(ai, 1);
+            return;
+        }
+        const si = this.scenery.findIndex(s => s.tileX === x && s.tileY === y);
+        if (si >= 0) {
+            this.scenery[si].instance.destroy(this.animalManager.scene);
+            this.scenery.splice(si, 1);
+            return;
+        }
+        if (this.fenceManager.removeFencesAt(x, y)) {
+            this.exhibitManager.updateExhibits();
+            return;
+        }
+        if (this.pathManager.getPath(x, y) !== PathType.None) {
+            this.pathManager.setPath(x, y, PathType.None);
         }
     }
 
@@ -330,7 +365,7 @@ export class EditorManager {
         }
     }
 
-    public async placeAnimal(id: string, x: number, y: number, isRemote: boolean = false) {
+    public async placeAnimal(id: string, x: number, y: number, isRemote: boolean = false): Promise<boolean> {
         try {
             await this.animalManager.loadAnimal(id, 'walk');
             const instance = this.animalManager.createInstance(id, 'walk', { x, y });
@@ -338,12 +373,15 @@ export class EditorManager {
                 const worldPos = this.gridRenderer.getTileWorldPos(x, y);
                 instance.setPosition(worldPos.x, 0, worldPos.z);
                 this.animals.push({ id, tileX: x, tileY: y, instance });
-                
+
                 if (isRemote) {
                     console.log(`[EditorManager] Remote animal placed: ${id} at ${x},${y}`);
                 }
+                return true;
             }
-        } catch (e) { console.error(e); }
+            console.warn(`[EditorManager] No animation frames found for animal '${id}'`);
+            return false;
+        } catch (e) { console.error(e); return false; }
     }
 
     public async placeScenery(id: string, x: number, y: number, isRemote: boolean = false) {

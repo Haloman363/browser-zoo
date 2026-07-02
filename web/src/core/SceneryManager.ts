@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PX_TO_WORLD, fixSpriteTexture } from '../utils/spriteLoader';
 
 export interface SceneryMetadata {
     id: string;
@@ -18,13 +19,14 @@ export class SceneryManager {
 
         const promise = (async () => {
             const texLoader = new THREE.TextureLoader();
-            // Path: /assets/baobob/ne/ne_000.png
-            const url = `/assets/${id}/${view}/${view}_000.png`;
+            // Path: /assets/baobob/idle/se_000.png
+            const url = `/assets/${id}/idle/${view}_000.png`;
             
             try {
-                const texture = await texLoader.loadAsync(url);
+                let texture = await texLoader.loadAsync(url);
                 texture.magFilter = THREE.NearestFilter;
                 texture.minFilter = THREE.NearestFilter;
+                texture = fixSpriteTexture(texture);
                 this.textureCache.set(cacheKey, texture);
                 return texture;
             } catch (e) {
@@ -52,7 +54,7 @@ export class SceneryInstance {
     }
 
     public setPosition(x: number, y: number, z: number) {
-        const scale = 0.4;
+        const scale = PX_TO_WORLD;
         const img = this.sprite.material.map?.image;
         if (img) {
             this.sprite.scale.set(img.width * scale, img.height * scale, 1);

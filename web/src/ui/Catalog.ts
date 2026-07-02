@@ -3,6 +3,8 @@ export interface CatalogItem {
     name: string;
     cost: number;
     iconUrl: string;
+    color?: string;   // fallback swatch when there is no icon image
+    type?: string;    // brush type override (lets one panel mix terrain/paths/fences)
 }
 
 export class Catalog {
@@ -19,9 +21,11 @@ export class Catalog {
         const background = document.createElement('div');
         Object.assign(background.style, {
             width: '171px',
-            height: '439px',
+            height: 'min(439px, calc(100vh - 140px))',
             background: "url('./assets/ui/objpan/N_000.png') no-repeat",
-            position: 'relative'
+            backgroundSize: '171px 439px',
+            position: 'relative',
+            overflowY: 'auto'
         });
         
         this.titleDisplay = document.createElement('div');
@@ -74,12 +78,16 @@ export class Catalog {
 
     private applyStyles() {
         Object.assign(this.container.style, {
-            position: 'absolute',
-            top: '6px',
-            left: '17px', // Anchor 1032 + offset
+            position: 'fixed',
+            bottom: 'var(--hud-bottom-h, 122px)', // updated by HUD.setBottomHeight()
+            left: '40px',                          // clear the left sidebar
             zIndex: '2500',
             pointerEvents: 'auto'
         });
+    }
+
+    public setBottomOffset(px: number) {
+        this.container.style.bottom = `${px + 8}px`;
     }
 
     public setTitle(title: string) {
@@ -98,16 +106,27 @@ export class Catalog {
                 position: 'relative'
             });
             
-            const icon = document.createElement('img');
-            icon.src = item.iconUrl;
-            Object.assign(icon.style, {
+            const iconStyle = {
                 width: '32px',
                 height: '32px',
                 position: 'absolute',
                 top: '8px',
                 left: '8px'
-            });
-            btn.appendChild(icon);
+            };
+            if (item.iconUrl) {
+                const icon = document.createElement('img');
+                icon.src = item.iconUrl;
+                Object.assign(icon.style, iconStyle);
+                btn.appendChild(icon);
+            } else {
+                const swatch = document.createElement('div');
+                Object.assign(swatch.style, iconStyle, {
+                    background: item.color || '#666',
+                    border: '1px solid #333',
+                    boxSizing: 'border-box'
+                });
+                btn.appendChild(swatch);
+            }
 
             btn.onclick = () => this.onSelectCallback(item.id);
             btn.title = `${item.name} ($${item.cost})`;

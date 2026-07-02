@@ -7,13 +7,15 @@ export class UIManager {
     private cashHud: HTMLElement;
     private currentSelectedId: string | null = null;
     private currentBrushType: BrushType = 'animal';
-    private onSelectCallback: (type: BrushType, id: string) => void = () => {};
+    private onSelectCallback: (type: BrushType, id: string, cost: number) => void = () => {};
 
     private animalItems: CatalogItem[] = [];
     private sceneryItems: CatalogItem[] = [];
     private fenceItems: CatalogItem[] = [];
     private staffItems: CatalogItem[] = [];
     private terrainItems: CatalogItem[] = [];
+    private pathItems: CatalogItem[] = [];
+    private shownItems: CatalogItem[] = [];
 
     constructor() {
         this.catalog = new Catalog();
@@ -22,34 +24,47 @@ export class UIManager {
         document.body.appendChild(this.cashHud);
 
         this.initData();
-        
+
         this.catalog.onSelect((id) => {
-            this.selectItem(this.currentBrushType, id);
-            this.onSelectCallback(this.currentBrushType, id);
+            const item = this.shownItems.find(i => i.id === id);
+            const type = (item?.type as BrushType) || this.currentBrushType;
+            this.selectItem(type, id);
+            this.onSelectCallback(type, id, item?.cost ?? 0);
         });
     }
 
     private initData() {
-        // Placeholder data initialization
-        // In a real app, this would be loaded from metadata.json files
         this.terrainItems = [
-            { id: 'Grass', name: 'Grass', cost: 10, iconUrl: '' },
-            { id: 'Sand', name: 'Sand', cost: 10, iconUrl: '' },
-            { id: 'Dirt', name: 'Dirt', cost: 10, iconUrl: '' },
-            { id: 'Water', name: 'Water', cost: 10, iconUrl: '' }
+            { id: 'Grass', name: 'Grass', cost: 10, iconUrl: '', color: '#5c8a3a', type: 'terrain' },
+            { id: 'Sand', name: 'Sand', cost: 10, iconUrl: '', color: '#d2b48c', type: 'terrain' },
+            { id: 'Dirt', name: 'Dirt', cost: 10, iconUrl: '', color: '#8b4513', type: 'terrain' },
+            { id: 'Water', name: 'Water', cost: 10, iconUrl: '', color: '#2a5adf', type: 'terrain' }
         ];
 
-        this.sceneryItems = ['baobob', 'acacia', 'bamboo', 'bench', 'birch', 'cherry'].map(id => ({
-            id, name: id, cost: 100, iconUrl: ''
-        }));
+        this.pathItems = [
+            { id: 'Asphalt', name: 'Asphalt Path', cost: 20, iconUrl: '', color: '#333333', type: 'path' },
+            { id: 'Brick', name: 'Brick Path', cost: 20, iconUrl: '', color: '#a52a2a', type: 'path' },
+            { id: 'DirtPath', name: 'Dirt Path', cost: 20, iconUrl: '', color: '#5d4037', type: 'path' }
+        ];
 
-        this.fenceItems = ['bricklow', 'castiron', 'chaincon'].map(id => ({
-            id, name: id, cost: 50, iconUrl: ''
-        }));
+        this.sceneryItems = [
+            { id: 'baobob', name: 'Baobab Tree', cost: 100, iconUrl: './assets/ui/icons/baobob.png' },
+            { id: 'acacia', name: 'Acacia Tree', cost: 100, iconUrl: './assets/ui/icons/acacia.png' },
+            { id: 'bamboo', name: 'Bamboo', cost: 80, iconUrl: './assets/ui/icons/bamboo.png' },
+            { id: 'bench', name: 'Bench', cost: 50, iconUrl: './assets/ui/icons/bench.png' },
+            { id: 'birch', name: 'Birch Tree', cost: 100, iconUrl: './assets/ui/icons/birch.png' },
+            { id: 'cherry', name: 'Cherry Tree', cost: 100, iconUrl: './assets/ui/icons/cherry.png' },
+        ];
+
+        this.fenceItems = [
+            { id: 'bricklow', name: 'Brick Fence', cost: 50, iconUrl: './assets/ui/icons/bricklow.png', type: 'fence' },
+            { id: 'castiron', name: 'Cast Iron Fence', cost: 75, iconUrl: './assets/ui/icons/castiron.png', type: 'fence' },
+            { id: 'chaincon', name: 'Chain Link Fence', cost: 30, iconUrl: './assets/ui/icons/chaincon.png', type: 'fence' },
+        ];
 
         this.staffItems = [
             { id: 'keeper', name: 'Zoo Keeper', cost: 800, iconUrl: './assets/ui/icons/keeper.png' },
-            { id: 'maint', name: 'Maintenance Worker', cost: 500, iconUrl: './assets/ui/icons/maint.png' },
+            { id: 'maint', name: 'Maintenance', cost: 500, iconUrl: './assets/ui/icons/maint.png' },
             { id: 'guide', name: 'Tour Guide', cost: 600, iconUrl: './assets/ui/icons/guide.png' }
         ];
     }
@@ -75,6 +90,26 @@ export class UIManager {
 
     public setCash(amount: number) {
         this.cashHud.innerText = `$${amount.toLocaleString()}`;
+    }
+
+    public showError(message: string) {
+        const toast = document.createElement('div');
+        toast.innerText = message;
+        Object.assign(toast.style, {
+            position: 'fixed',
+            top: '60px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(120, 0, 0, 0.9)',
+            color: '#fff',
+            padding: '8px 16px',
+            fontFamily: 'monospace',
+            fontSize: '16px',
+            zIndex: '4000',
+            borderRadius: '4px'
+        });
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2500);
     }
 
     public setMode(mode: string) {
@@ -106,26 +141,30 @@ export class UIManager {
 
     public showCategory(type: BrushType) {
         this.currentBrushType = type;
-        this.catalog.setTitle(type);
         this.setCursor(type);
-        
+
         switch (type) {
             case 'animal':
-                this.catalog.setItems(this.animalItems);
+                this.catalog.setTitle('animals');
+                this.shownItems = this.animalItems;
                 break;
             case 'scenery':
-                this.catalog.setItems(this.sceneryItems);
-                break;
-            case 'fence':
-                this.catalog.setItems(this.fenceItems);
+                this.catalog.setTitle('objects');
+                this.shownItems = this.sceneryItems;
                 break;
             case 'staff':
-                this.catalog.setItems(this.staffItems);
+                this.catalog.setTitle('staff');
+                this.shownItems = this.staffItems;
                 break;
+            case 'fence':
+            case 'path':
             case 'terrain':
-                this.catalog.setItems(this.terrainItems);
+                // ZT1's habitat panel combines fences, terrain, and paths
+                this.catalog.setTitle('habitat');
+                this.shownItems = [...this.fenceItems, ...this.terrainItems, ...this.pathItems];
                 break;
         }
+        this.catalog.setItems(this.shownItems);
         this.catalog.show();
     }
 
@@ -139,15 +178,37 @@ export class UIManager {
         this.cashHud.style.display = 'block';
     }
 
-    public onSelect(callback: (type: BrushType, id: string) => void) {
+    public setBottomOffset(px: number) {
+        this.catalog.setBottomOffset(px);
+    }
+
+    public onSelect(callback: (type: BrushType, id: string, cost: number) => void) {
         this.onSelectCallback = callback;
     }
 
     public updateAnimalList(animals: string[]) {
+        const names: Record<string, string> = {
+            afrbuf: 'African Buffalo', gorilla: 'Gorilla', lion: 'Lion', tiger: 'Bengal Tiger',
+            chimpanz: 'Chimpanzee', eleph: 'African Elephant', giraffe: 'Giraffe', hippo: 'Hippo',
+            ostrich: 'Ostrich', zebra: 'Zebra', gallim: 'Gallimimus', plateo: 'Plateosaurus',
+            asieleph: 'Asian Elephant', bongo: 'Bongo', yeti: 'Yeti', baracuda: 'Barracuda',
+            reindeer: 'Reindeer', mtnlion: 'Mountain Lion', llama: 'Llama', blckbuck: 'Blackbuck',
+            bigfoot: 'Bigfoot', mexwolf: 'Mexican Wolf', lochness: 'Loch Ness Monster',
+            wilddog: 'African Wild Dog', asblckbr: 'Asian Black Bear', komodo: 'Komodo Dragon',
+            megath: 'Megatherium'
+        };
+        const costs: Record<string, number> = {
+            lion: 10000, tiger: 10000, gorilla: 8000, eleph: 12000, giraffe: 6000,
+            hippo: 7000, chimpanz: 5000, zebra: 4000, ostrich: 3000, afrbuf: 5000,
+            gallim: 8000, plateo: 9000, asieleph: 11000, bongo: 4000, yeti: 15000,
+            baracuda: 5000, reindeer: 4000, mtnlion: 8000, llama: 3000, blckbuck: 3500,
+            bigfoot: 15000, mexwolf: 6000, lochness: 20000, wilddog: 5000, asblckbr: 7000,
+            komodo: 6000, megath: 9000
+        };
         this.animalItems = animals.map(id => ({
             id,
-            name: id,
-            cost: 500,
+            name: names[id] || id,
+            cost: costs[id] || 500,
             iconUrl: `./assets/ui/icons/${id}.png`
         }));
     }

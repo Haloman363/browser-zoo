@@ -2,11 +2,7 @@ import * as THREE from 'three';
 import { Pathfinder, Tile, BlockedCheck } from '../core/Pathfinder';
 import { PathManager } from '../core/PathManager';
 import { VisualEffectManager } from '../core/VisualEffectManager';
-
-interface AnimationState {
-    materials: THREE.SpriteMaterial[];
-    frameDuration: number;
-}
+import { loadDirectionalAnims, AnimationState, PX_TO_WORLD } from '../utils/spriteLoader';
 
 export type GuestState = 'wandering' | 'seeking_food' | 'seeking_drink' | 'seeking_restroom' | 'seeking_rest' | 'seeking_trash' | 'leaving';
 
@@ -55,17 +51,22 @@ export class GuestInstance {
         this.shadow.rotation.x = -Math.PI / 2;
         this.shadow.position.y = 0.01;
         this.scene.add(this.shadow);
+
+        const p = this.getTileWorldPos(this.currentTile);
+        this.setPosition(p.x, 0, p.z);
     }
 
     setPosition(x: number, y: number, z: number) {
-        const scale = 0.35;
+        const scale = PX_TO_WORLD;
         const img = this.sprite.material.map?.image;
         if (img) {
             this.sprite.scale.set(img.width * scale, img.height * scale, 1);
             this.sprite.position.set(x, y + (img.height * scale) / 2, z);
-            this.sprite.renderOrder = Math.floor(z * 100); 
-            this.shadow.position.set(x, 0.01, z);
+            this.sprite.renderOrder = Math.floor(z * 100);
+        } else {
+            this.sprite.position.set(x, y + 0.5, z);
         }
+        this.shadow.position.set(x, 0.01, z);
     }
 
     private updateDirection(from: Tile, to: Tile) {
@@ -129,8 +130,12 @@ export class GuestInstance {
             this.setPosition(p1.x + (p2.x - p1.x) * this.lerpAlpha, 0, p1.z + (p2.z - p1.z) * this.lerpAlpha);
         } else {
             if (Math.random() < 0.01) {
-                const target = this.findRandomPathTile(pathManager);
-                if (target) this.walkTo(target, isEdgeBlocked);
+                // Prefer paths; wander nearby grass if none around (so gate guests don't freeze)
+                const target = this.findRandomPathTile(pathManager) || {
+                    x: Math.floor(Math.max(0, Math.min(74, this.currentTile.x + (Math.random() * 12 - 6)))),
+                    y: Math.floor(Math.max(0, Math.min(74, this.currentTile.y + (Math.random() * 12 - 6))))
+                };
+                this.walkTo(target, isEdgeBlocked);
             }
         }
 
@@ -255,54 +260,30 @@ export class GuestManager {
     }
 
     private async loadGuestType(type: string) {
-        const directions = ['n', 'ne', 'e', 'se', 's'];
-        const anims: Record<string, AnimationState> = {};
-        const texLoader = new THREE.TextureLoader();
-        for (const dir of directions) {
-            const frames: THREE.SpriteMaterial[] = [];
-            let frameIndex = 0;
-            while (frameIndex < 32) {
-                const url = `/assets/${type}/walk/${dir}/${dir}_${frameIndex.toString().padStart(3, '0')}.png`;
-                try {
-                    const check = await fetch(url, { method: 'HEAD' });
-                    if (!check.ok) break;
-                    const tex = await texLoader.loadAsync(url);
-                    tex.magFilter = THREE.NearestFilter;
-                    tex.minFilter = THREE.NearestFilter;
-                    frames.push(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-                    frameIndex++;
-                } catch (e) { break; }
-            }
-            if (frames.length > 0) anims[dir.toUpperCase()] = { materials: frames, frameDuration: 1000/12 };
-        }
-        const mirrorMap: Record<string, string> = { 'SW': 'SE', 'W': 'E', 'NW': 'NE' };
-        for (const [target, source] of Object.entries(mirrorMap)) {
-            if (anims[source]) {
-                const sourceState = anims[source];
-                const mirrored = sourceState.materials.map(m => {
-                    const t = m.map!.clone();
-                    t.wrapS = THREE.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1;
-                    return new THREE.SpriteMaterial({ map: t, transparent: true });
-                });
-                anims[target] = { materials: mirrored, frameDuration: sourceState.frameDuration };
-            }
-        }
-        this.animationCache.set(type, anims);
+        this.animationCache.set(type, await loadDirectionalAnims(`/assets/${type}/walk`, 32));
     }
+
+    // Called whenever a new guest enters the zoo (pays admission at the gate, like ZT1)
+    public onAdmission: () => void = () => {};
+
+    // Where new guests appear; scenario maps set this to the zoo entrance
+    public entrance = { x: 37, y: 74 };
 
     public spawnGuest(x: number, y: number) {
         const type = Math.random() > 0.5 ? 'man' : 'woman';
         const anims = this.animationCache.get(type);
-        if (anims) {
+        if (anims && Object.keys(anims).length > 0) {
             const guest = new GuestInstance(type as any, anims, this.scene, this.pathfinder, { x, y });
             this.guests.push(guest);
+            this.onAdmission();
         }
     }
 
     public update(time: number, isEdgeBlocked: BlockedCheck, pathManager: PathManager, animals: any[], buildings: any[], onConcessionPurchase: () => void) {
         this.guests.forEach(g => g.update(time, isEdgeBlocked, pathManager, animals, buildings, onConcessionPurchase));
-        if (this.guests.length < 10 && Math.random() < 0.01) {
-            this.spawnGuest(37, 37);
+        // Guests only show up when the zoo has animals; they enter at the zoo entrance
+        if (this.guests.length < 10 && animals.length > 0 && Math.random() < 0.01) {
+            this.spawnGuest(this.entrance.x, this.entrance.y);
         }
     }
 

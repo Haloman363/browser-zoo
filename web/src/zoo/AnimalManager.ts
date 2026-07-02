@@ -2,17 +2,13 @@ import * as THREE from 'three';
 import { Pathfinder, Tile, BlockedCheck } from '../core/Pathfinder';
 import { AudioManager } from '../core/AudioManager';
 import { VisualEffectManager } from '../core/VisualEffectManager';
+import { loadDirectionalAnims, AnimationState, PX_TO_WORLD } from '../utils/spriteLoader';
 
 export interface AnimalMetadata {
     id: string;
     name: string;
     description: string;
     family: string;
-}
-
-interface AnimationState {
-    materials: THREE.SpriteMaterial[];
-    frameDuration: number;
 }
 
 export class AnimalManager {
@@ -34,48 +30,12 @@ export class AnimalManager {
                 await this.audioManager.loadAnimalSounds(id, filenames);
             }
 
-            const directions = ['n', 'ne', 'e', 'se', 's'];
-            const anims: Record<string, AnimationState> = {};
-            const texLoader = new THREE.TextureLoader();
-
-            for (const dir of directions) {
-                const frames: THREE.SpriteMaterial[] = [];
-                let frameIndex = 0;
-                while (frameIndex < 256) {
-                    const frameNum = frameIndex.toString().padStart(3, '0');
-                    const url = `/assets/${id}/m/${animation}/${dir}/${dir}_${frameNum}.png`;
-                    try {
-                        const check = await fetch(url, { method: 'HEAD' }); 
-                        if (!check.ok) break;
-                        const texture = await texLoader.loadAsync(url);
-                        texture.magFilter = THREE.NearestFilter;
-                        texture.minFilter = THREE.NearestFilter;
-                        frames.push(new THREE.SpriteMaterial({ map: texture, transparent: true }));
-                        frameIndex++;
-                    } catch (e) { break; }
-                }
-                if (frames.length > 0) {
-                    anims[dir.toUpperCase()] = { materials: frames, frameDuration: 1000 / 12 };
-                }
-            }
-
-            const mirrorMap: Record<string, string> = { 'SW': 'SE', 'W': 'E', 'NW': 'NE' };
-            for (const [target, source] of Object.entries(mirrorMap)) {
-                if (anims[source]) {
-                    const sourceState = anims[source];
-                    const mirroredMats = sourceState.materials.map(mat => {
-                        const tex = mat.map!.clone();
-                        tex.wrapS = THREE.RepeatWrapping;
-                        tex.repeat.x = -1; 
-                        tex.offset.x = 1; 
-                        return new THREE.SpriteMaterial({ map: tex, transparent: true });
-                    });
-                    anims[target] = { materials: mirroredMats, frameDuration: sourceState.frameDuration };
-                }
-            }
+            const anims = await loadDirectionalAnims(`/assets/${id}/m/${animation}`);
             this.animationCache.set(cacheKey, anims);
         })();
 
+        // Drop failed loads from the cache so a transient error doesn't poison retries
+        promise.catch(() => this.loadingPromises.delete(cacheKey));
         this.loadingPromises.set(cacheKey, promise);
         return promise;
     }
@@ -83,7 +43,7 @@ export class AnimalManager {
     createInstance(id: string, animation: string = 'walk', startTile?: Tile): AnimalInstance | null {
         const cacheKey = `${id}:${animation}`;
         const anims = this.animationCache.get(cacheKey);
-        if (!anims) return null;
+        if (!anims || Object.keys(anims).length === 0) return null;
         return new AnimalInstance(id, anims, this.scene, this.pathfinder, startTile);
     }
 
@@ -134,16 +94,16 @@ export class AnimalInstance {
     }
 
     setPosition(x: number, y: number, z: number) {
-        const scale = 0.4;
+        const scale = PX_TO_WORLD;
         const img = this.sprite.material.map?.image;
         if (img) {
             this.sprite.scale.set(img.width * scale, img.height * scale, 1);
             this.sprite.position.set(x, y + (img.height * scale) / 2, z);
-            this.sprite.renderOrder = Math.floor(z * 100); 
-            
+            this.sprite.renderOrder = Math.floor(z * 100);
+
             // Sync shadow
             this.shadow.position.set(x, 0.01, z);
-            this.shadow.scale.set(img.width * scale * 0.05, img.width * scale * 0.025, 1);
+            this.shadow.scale.set(img.width * scale * 0.6, img.width * scale * 0.6, 1);
         } else {
             this.sprite.position.set(x, y, z);
             this.shadow.position.set(x, 0.01, z);

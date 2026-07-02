@@ -2,7 +2,9 @@ export enum PathType {
     None = 0,
     Asphalt = 1,
     Brick = 2,
-    Dirt = 3
+    Dirt = 3,
+    Stone = 4,
+    Tan = 5   // ZT1's standard tan path
 }
 
 export class PathManager {

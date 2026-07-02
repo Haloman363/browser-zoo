@@ -57,6 +57,8 @@ const camera = new THREE.OrthographicCamera(
 
 camera.position.set(100, 100, 100);
 camera.lookAt(0, 0, 0);
+camera.zoom = 2; // default view scale close to ZT1; mouse wheel zooms 0.5x-5x
+camera.updateProjectionMatrix();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setClearColor(0x000000);
@@ -92,17 +94,19 @@ uiManager.hide();
 hud.hide();
 status.style.display = 'none';
 
-const startGame = async (mode: 'freeform' | 'scenario', scenarioId?: string) => {
+const startGame = async (mode: 'freeform' | 'scenario', scenarioId?: string, preserve: boolean = false) => {
     console.log(`Starting game in ${mode} mode (${scenarioId || 'none'})...`);
-    
+
     if (mode === 'scenario' && scenarioId) {
         status.textContent = `Loading scenario ${scenarioId}...`;
         try {
             const response = await fetch(`./assets/maps/${scenarioId}.zoo`);
+            if (!response.ok) throw new Error(`Map not found: ${response.status}`);
             const arrayBuffer = await response.arrayBuffer();
-            const map = ZooMapParser.parse(Buffer.from(arrayBuffer));
+            const map = ZooMapParser.parse(arrayBuffer);
             await editorManager.loadMap(map, 25000);
-            
+            guestManager.entrance = map.entrance;
+
             scenarioManager.loadScenario(scenarioId);
             const firstGoal = scenarioManager.getGoals()[0];
             status.textContent = `Scenario: ${scenarioId}. Goal: ${firstGoal?.description || 'Grow your zoo!'}`;
@@ -112,7 +116,7 @@ const startGame = async (mode: 'freeform' | 'scenario', scenarioId?: string) => 
             status.textContent = `Scenario ${scenarioId} (Map failed to load). Goal: Grow your zoo!`;
         }
     } else {
-        if (!networkManager.isConnected() || networkManager.isHosting()) {
+        if (!preserve && (!networkManager.isConnected() || networkManager.isHosting())) {
             editorManager.resetZoo(50000);
         }
         if (networkManager.isHosting()) {
@@ -137,6 +141,12 @@ const startGame = async (mode: 'freeform' | 'scenario', scenarioId?: string) => 
 };
 
 mainMenu.onPlay(startGame);
+// Continue: keep the autosaved world loaded during initGame instead of resetting
+mainMenu.onContinue(() => startGame('freeform', undefined, true));
+mainMenu.onLoad(() => {
+    startGame('freeform', undefined, true);
+    saveLoadMenu.show();
+});
 
 mainMenu.onNetworkAction(async (action) => {
     if (action === 'host') {
@@ -277,21 +287,21 @@ economyManager.onUpdate((cash) => {
 });
 
 uiManager.updateAnimalList(WHITELIST);
-uiManager.onSelect((type, id) => {
+uiManager.onSelect((type, id, cost) => {
     statusWindow.hide();
     audioManager.playClickSound();
     if (type === 'animal') {
-        editorManager.selectAnimalForPlacement(id);
+        editorManager.selectAnimalForPlacement(id, cost);
         uiManager.setMode('animal');
-        status.textContent = `Placing Animal: ${id}. Cost: $500.`;
+        status.textContent = `Placing Animal: ${id}. Cost: $${cost}.`;
     } else if (type === 'scenery') {
-        editorManager.selectSceneryForPlacement(id);
+        editorManager.selectSceneryForPlacement(id, cost);
         uiManager.setMode('scenery');
-        status.textContent = `Placing Scenery: ${id}. Cost: $100.`;
+        status.textContent = `Placing Scenery: ${id}. Cost: $${cost}.`;
     } else if (type === 'fence') {
-        editorManager.selectFenceForPlacement(id);
+        editorManager.selectFenceForPlacement(id, cost);
         uiManager.setMode('fence');
-        status.textContent = `Placing Fence: ${id}. Cost: $50.`;
+        status.textContent = `Placing Fence: ${id}. Cost: $${cost}.`;
     } else if (type === 'path') {
         editorManager.selectPathForPainting(id);
         uiManager.setMode('terrain');
@@ -301,9 +311,9 @@ uiManager.onSelect((type, id) => {
         uiManager.setMode('terrain');
         status.textContent = `Painting Terrain: ${id}. Cost: $10.`;
     } else if (type === 'staff') {
-        editorManager.selectStaffForHiring(id);
+        editorManager.selectStaffForHiring(id, cost);
         uiManager.setMode('staff');
-        status.textContent = `Hiring: ${id}. Cost: $1000.`;
+        status.textContent = `Hiring: ${id}. Cost: $${cost}.`;
     }
 });
 
@@ -338,14 +348,12 @@ async function initGame() {
         } else if (day === 5) {
             visualEffectManager.setWeather('none');
         }
-
-        // Daily income from guests
-        const guestCount = guestManager.guests.length;
-        if (guestCount > 0) {
-            const incomePerGuest = economyManager.getAdmissionFee();
-            economyManager.addCash(guestCount * incomePerGuest, 'admission');
-        }
     });
+
+    // Guests pay admission once, when they enter the zoo (like ZT1)
+    guestManager.onAdmission = () => {
+        economyManager.addCash(economyManager.getAdmissionFee(), 'admission');
+    };
 
     timeManager.setOnMonthEnd((month, year) => {
         // Subtract salaries
@@ -366,15 +374,22 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let isMouseDown = false;
 
-window.addEventListener('mousedown', () => isMouseDown = true);
+// Only react to the 3D canvas — clicks on HUD/catalog DOM must not hit the world.
+// NDC must be computed against the canvas rect: the canvas is offset by the HUD
+// left bar and shrunk by the bottom bar, so window coordinates are wrong.
+window.addEventListener('mousedown', (e) => { if (e.target === renderer.domElement) isMouseDown = true; });
 window.addEventListener('mouseup', () => isMouseDown = false);
 
 window.addEventListener('mousemove', (event) => {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 });
 
-window.addEventListener('click', () => {
+window.addEventListener('click', (event) => {
+    if (event.target !== renderer.domElement) return;
+    // The animate loop may not have run since the last mousemove — refresh the ray now
+    raycaster.setFromCamera(mouse, camera);
     const hovered = gridRenderer.updateHover(raycaster);
     if (hovered) {
         if (editorManager.getMode() === 'select') {
@@ -438,6 +453,7 @@ function resizeRenderer(leftW: number, bottomH: number) {
     renderer.domElement.style.position = 'absolute';
     renderer.domElement.style.left = `${leftW}px`;
     renderer.domElement.style.top = '0';
+    uiManager.setBottomOffset(bottomH);
 }
 
 hud.onResize(resizeRenderer);

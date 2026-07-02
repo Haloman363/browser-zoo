@@ -2,7 +2,20 @@ export enum TerrainType {
     Grass = 0,
     Sand = 1,
     Dirt = 2,
-    Water = 3
+    Water = 3,
+    // Extended ZT1 types (used by scenario maps; painting UI offers the four above)
+    Savannah = 4,
+    Rainforest = 5,
+    BrownStone = 6,
+    GrayStone = 7,
+    Gravel = 8,
+    Snow = 9,
+    SaltWater = 10,
+    Deciduous = 11,
+    Coniferous = 12,
+    Concrete = 13,
+    Asphalt = 14,
+    Trampled = 15
 }
 
 export class TerrainManager {

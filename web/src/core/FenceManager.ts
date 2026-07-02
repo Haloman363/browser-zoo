@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PX_TO_WORLD, fixSpriteTexture } from '../utils/spriteLoader';
 
 export interface Edge {
     x: number;
@@ -17,19 +18,17 @@ export class FenceManager {
         const key = `${x},${y},${side}`;
         if (this.fenceData.has(key)) return;
 
-        this.fenceData.set(key, fenceId);
-        
-        // ZT1 fences usually have ne, nw, se, sw views. 
-        // We'll map our n, e, s, w to these.
-        // For a flat edge, we'll use 'se' or 'sw' depending on orientation.
+        // ZT1 fences have ne, nw, se, sw views; flat edges use 'se' or 'sw'.
         let view = 'se';
         if (side === 'n' || side === 's') view = 'sw';
-        
+
+        // Load texture BEFORE committing data so a failed load doesn't leave an invisible wall
         const texture = await this.getTexture(fenceId, view);
+        this.fenceData.set(key, fenceId);
         const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
-        
+
         const worldPos = this.getEdgeWorldPos(x, y, side);
-        const scale = 0.4;
+        const scale = PX_TO_WORLD;
         const img = texture.image;
         sprite.scale.set(img.width * scale, img.height * scale, 1);
         sprite.position.set(worldPos.x, (img.height * scale) / 2, worldPos.z);
@@ -45,10 +44,11 @@ export class FenceManager {
         const cacheKey = `${id}:${view}`;
         if (this.textureCache.has(cacheKey)) return this.textureCache.get(cacheKey)!;
 
-        const url = `/assets/${id}/f/idle/${view}/${view}_000.png`;
-        const tex = await new THREE.TextureLoader().loadAsync(url);
+        const url = `/assets/${id}/f/idle/${view}_000.png`;
+        let tex = await new THREE.TextureLoader().loadAsync(url);
         tex.magFilter = THREE.NearestFilter;
         tex.minFilter = THREE.NearestFilter;
+        tex = fixSpriteTexture(tex);
         this.textureCache.set(cacheKey, tex);
         return tex;
     }
@@ -68,6 +68,23 @@ export class FenceManager {
 
     public isEdgeBlocked(x: number, y: number, side: 'n' | 'e' | 's' | 'w'): boolean {
         return this.fenceData.has(`${x},${y},${side}`);
+    }
+
+    // Removes all fences on the given tile's edges; returns true if any were removed
+    public removeFencesAt(x: number, y: number): boolean {
+        let removed = false;
+        for (const side of ['n', 'e', 's', 'w']) {
+            const key = `${x},${y},${side}`;
+            if (this.fenceData.delete(key)) {
+                const sprite = this.fenceSprites.get(key);
+                if (sprite) {
+                    this.scene.remove(sprite);
+                    this.fenceSprites.delete(key);
+                }
+                removed = true;
+            }
+        }
+        return removed;
     }
 
     public reset() {
