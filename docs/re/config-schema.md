@@ -27,10 +27,14 @@ empty). Two file types exist in the corpus:
 - **`.uca`** — "you-caught-animal" pairing files (e.g. `b101b026.uca` —
   observed under `animals/`, filename encodes a predator/prey or
   species-pair code). Structurally identical to `.ai` (same section types)
-  but scoped to one interaction pair; carries its own `[Global]`/`[Member]`-like
-  identity sections (e.g. a section literally named after the pair code,
-  holding `cName`/`cLongHelp`/`cTheString`) plus `AnimPath` and gender-keyed
-  `BehaviorSet` blocks for that specific caught/chase animation set.
+  but scoped to one interaction pair; carries its own `[Global]`/`[Member]`
+  identity sections, a section literally named after the pair code
+  (`[B101B026]` — empty in the sampled file), an LCID-named section
+  (`[1033]`) holding the localized text fields (`cName`/`cLongHelp`/
+  `cTheString`/`cGeneralInfoFileName`), a `[defaultLCID]` section
+  (`LCID: 1033`) selecting the default locale, plus `AnimPath` and
+  variant-keyed `BehaviorSet` blocks for that specific caught/chase
+  animation set.
 
 Config inheritance is layered by file, not by an explicit "extends" key:
 class-wide defaults live in a base file (`animals.ai`, `building.ai`,
@@ -51,7 +55,7 @@ Track B question.)
 | Section | Meaning |
 |---|---|
 | `""` (top-level) | Pre-section lines; observed empty in every sampled file |
-| `[Global]` | Object taxonomy: `Class` / `Type` / `Subtype` / `DefaultSubtype`. Some files also carry `AvailableAtStartup` here (`0` seen on `gstand2`, `photobth`, `iceberg`, `statdolp`, `statorca` — content locked until unlocked in-game; confidence: medium, meaning inferred from name + which objects have it) |
+| `[Global]` | Object taxonomy: `Class` / `Type` / `Subtype` / `DefaultSubtype`. 13 files also carry `AvailableAtStartup` here, always `0`: bonus animals `unicorn`, `mmaid` (mermaid), `tritops`, `deino`, plus `gstand2`, `photobth`, `iceberg`, `testbox`, and the `stat*` statues (`statdolp`, `statorca`, `statseal`, `statslio`, `stattrio`) — content locked until unlocked in-game; confidence: medium-high, the clearly-bonus animals strengthen the "locked bonus content" inference |
 | `[Member]` | Bare classification lines (no `key=value`, just tokens, e.g. `staff`, `zoo`, `aqua` on `staff/keeper.ai`; `animals` on `animals/lion.ai`) — groups the object into one or more buy-menu / filter categories |
 | `[Characteristics/Integers]` | Numeric game-rule values — see key reference below |
 | `[Characteristics/Strings]` | Display name key, asset paths for plaque/info/list/training images |
@@ -72,9 +76,9 @@ Track B question.)
 | `[Removes]` | Bare token for what the object removes from the tile/guest (e.g. `trash` on `trshcan.ai`) |
 | `[EstheticBonus]` | `v` key: flat array of alternating `[StringID, weight]` pairs — scenery/decoration score contribution by nearby-object string ID |
 | Three animal-file sections whose lowercased names are `ccompatibleanimals`, `csuitableobjects`, `ccompatibleterrain` (top-level `[Section]` headers, not `Characteristics/*` keys, despite the key-like naming) | Same `v`-array-of-pairs shape as `EstheticBonus`: `[ID, weight]` — animal happiness/esthetic preference tables keyed by other-object or terrain-type string IDs |
-| `[AnimPath]` | Gender-keyed base folder paths for a `.uca` pairing's animation set (`f`/`m`/`y` → `animals/<CODE>/<variant>`) |
-| `[<pair-code>]` (e.g. `[B101B026]` on `b101b026.uca`) | Descriptive text block for a `.uca` pairing: `cGeneralInfoFileName`, `cLongHelp`, `cName`, `cTheString` |
-| `[<LCID>]` (e.g. `[1033]`) | Locale-ID-keyed text block, seen alongside the pair-code section on `.uca` files; likely selects the description block by language (1033 = English US in Windows LCID numbering — external knowledge, not derived from the dump) |
+| `[AnimPath]` | Variant-keyed base folder paths for a `.uca` pairing's animation set (`f`/`m`/`y` → `animals/<CODE>/<variant>`). The split is not always meaningfully distinct: in the sampled file, `f` and `m` both point to the identical path (`animals/B101B026/m`), with only `y` differing |
+| `[<pair-code>]` (e.g. `[B101B026]` on `b101b026.uca`) | Section named after the pair code — empty (`keys: {}`) in the sampled file; presumably an identity marker |
+| `[<LCID>]` (e.g. `[1033]`) | Locale-ID-named text block holding the localized descriptive fields for a `.uca` pairing: `cGeneralInfoFileName`, `cLongHelp`, `cName` (e.g. `Yeti`), `cTheString` (e.g. `the Yeti`). 1033 = English US in Windows LCID numbering (external knowledge, not derived from the dump). A companion `[defaultLCID]` section (`LCID: 1033`) selects which locale block is the default |
 | `[slots]` / `[slot]` / `[slot0..4]` / `[bigslot]` / `[smallslot*]` / `[otherslot]` / `[returnslot]` | Guest-usage queueing/positioning slots for a building (`name: slot` at minimum) |
 | `[Shapes]` | `shape` key: flat array of numeric IDs — path/terrain tile-shape variants a paths object supports |
 | `[HabitatFence]` / `[TankFence]` | Marker sections (observed empty in sampled files) flagging a fence as habitat- or tank-boundary-capable |
