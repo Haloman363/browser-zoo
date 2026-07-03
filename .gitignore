@@ -48,3 +48,7 @@ tmp/
 # Screenshot artifacts from UI iteration / Playwright
 *.png
 .playwright-mcp/
+
+# Derived from owned ZT1 game files — never distribute
+data/
+re/
