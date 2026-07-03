@@ -14,6 +14,8 @@ export function parseIni(content: string): IniFile {
     if (!file.sections[name]) file.sections[name] = { keys: {}, bare: [] };
     return file.sections[name];
   };
+  // top-level section always exists so callers can read pre-header keys
+  ensure('');
 
   for (const raw of content.split(/\r?\n/)) {
     const line = raw.trim();

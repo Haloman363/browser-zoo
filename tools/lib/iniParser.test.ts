@@ -24,7 +24,8 @@ test('trims whitespace around key and value', () => {
 
 test('skips comment and blank lines', () => {
   const r = parseIni('; a comment\n\n[S]\nk = v\n');
-  assert.deepEqual(Object.keys(r.sections), ['S']);
+  // '' is the always-present top-level section; comments/blanks add nothing
+  assert.deepEqual(Object.keys(r.sections), ['', 'S']);
   assert.deepEqual(r.sections['S'].keys['k'], ['v']);
 });
 
@@ -41,4 +42,9 @@ test('value may itself contain equals signs', () => {
 test('handles CRLF line endings', () => {
   const r = parseIni('[S]\r\nk = v\r\n');
   assert.deepEqual(r.sections['S'].keys['k'], ['v']);
+});
+
+test('top-level "" section exists even when file starts with a section header', () => {
+  const r = parseIni('[S]\nk = v\n');
+  assert.deepEqual(r.sections[''], { keys: {}, bare: [] });
 });
