@@ -8,6 +8,10 @@ Requires original ZT1 `.ztd`/`.pal` files in `Gamefiles/` (not distributed).
 **Milestone 1 complete.** All 6 phases shipped. Game is playable end-to-end.
 `.zoo` map parser rewritten browser-native (commit `abbec4d`) — scenarios now render the real ZT1 maps.
 
+**Now: decompilation program** (`docs/superpowers/specs/2026-07-02-zt1-decompilation-design.md`) — recover ground-truth game rules and feed them into `web/src/core/`.
+- **Track A done** (2026-07-05): full-fidelity INI parser (`tools/lib/iniParser.ts`), config dump (`tools/dump_configs.ts`), schema doc (`docs/re/config-schema.md`), manifest (`tools/build_manifest.ts`). Derived output lands in `data/` + `docs/re/` (gitignored; schema doc force-added).
+- **Next**: A3 extraction widening (all categories in `data/manifest.json`), then Track B binary RE (Ghidra on `Gamefiles/zoo.exe`, scoped by schema-doc open questions).
+
 ## Running the game
 
 ```bash

@@ -1,7 +1,14 @@
 # STATE: browser-zoo
 
-## Current Phase: Milestone 1 - Complete Prototype
-**Status**: The project has successfully reached its first major milestone. A fully-featured, authentic Zoo Tycoon 1 simulation is now playable in the browser.
+## Current Phase: Decompilation Program (post-M1)
+**Status**: Milestone 1 (playable prototype) complete. Now executing the ZT1 faithful-reimplementation program (`docs/superpowers/specs/2026-07-02-zt1-decompilation-design.md`): recover ground-truth game rules from configs + binary, feed them into `web/src/core/`.
+
+- **Track A (config-first extraction) — complete** (merged to master 2026-07-05): full-fidelity INI parser, complete `.ai`/`.uca` config dump (`tools/dump_configs.ts` → `data/`), config schema doc (`docs/re/config-schema.md`), asset+config manifest (`tools/build_manifest.ts` → `data/manifest.json`).
+- **A3 widening — next**: extract PNGs/audio for every category the manifest lists (currently only animals are fully ripped).
+- **Track B (binary RE) — queued**: B1 Ghidra scaffold on `zoo.exe`, B2 algorithm recovery prioritized by the schema doc's "Open questions", B3 port into `web/src/core/`.
+
+## Milestone 1 (complete)
+**Status**: A fully-featured, authentic Zoo Tycoon 1 simulation is playable in the browser.
 
 ## Key Features Implemented
 - [x] **Universal Extraction**: Robust toolset for original ZT1 graphics (`.ztd`, Skip-Draw RLE) and audio (`.wav`) extraction.
