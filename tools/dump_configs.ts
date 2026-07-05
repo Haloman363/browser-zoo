@@ -8,7 +8,8 @@ const OUT_DIR = path.join('data', 'config');
 
 function main() {
   const am = new ArchiveManager(GAME_FILES_DIR);
-  const CONFIG_EXTS = ['.ai', '.uca', '.ani', '.cfg'];
+  // .lyt: UI layout INI text — see docs/re/archive-survey.md
+  const CONFIG_EXTS = ['.ai', '.uca', '.ani', '.cfg', '.lyt'];
   const configPaths = am.listFiles(f => CONFIG_EXTS.some(e => f.endsWith(e)));
   console.log(`Found ${configPaths.length} config files.`);
 
