@@ -3,8 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export class ArchiveManager {
-    private archives: Map<string, AdmZip> = new Map();
+    // Index only: entry-name -> owning archive. AdmZip instances are NOT retained —
+    // 328k parsed ZipEntry objects cost ~3.6GB of JS heap (measured), which OOMs
+    // full-corpus tools. Archives reopen on demand through a tiny LRU instead.
     private fileMap: Map<string, { archive: string, originalPath: string }> = new Map();
+    private open: Map<string, AdmZip> = new Map();   // ponytail: 3-slot LRU; enough because access is archive-local
 
     constructor(private gameFilesDir: string) {
         this.indexArchives();
@@ -44,33 +47,52 @@ export class ArchiveManager {
             return b.localeCompare(a);
         });
 
+        let indexed = 0;
         for (const fullPath of ztdFiles) {
-            const fileName = path.basename(fullPath);
             try {
-                const zip = new AdmZip(fullPath);
-                this.archives.set(fullPath, zip);
-                
+                const zip = new AdmZip(fullPath);   // transient — discarded after indexing
                 for (const entry of zip.getEntries()) {
                     if (entry.isDirectory) continue;
                     const entryName = entry.entryName;
                     const entryPathLower = entryName.toLowerCase().replace(/\\/g, '/');
-                    
+
                     if (!this.fileMap.has(entryPathLower)) {
                         this.fileMap.set(entryPathLower, { archive: fullPath, originalPath: entryName });
                     }
                 }
+                indexed++;
             } catch (err) {
                 console.error(`Error loading archive ${fullPath}:`, err);
             }
         }
-        console.log(`Indexed ${this.fileMap.size} files across ${this.archives.size} archives.`);
+        console.log(`Indexed ${this.fileMap.size} files across ${indexed} archives.`);
+    }
+
+    private zipFor(archivePath: string): AdmZip | null {
+        const cached = this.open.get(archivePath);
+        if (cached) {
+            this.open.delete(archivePath);          // refresh recency
+            this.open.set(archivePath, cached);
+            return cached;
+        }
+        try {
+            const zip = new AdmZip(archivePath);
+            this.open.set(archivePath, zip);
+            if (this.open.size > 3) {
+                this.open.delete(this.open.keys().next().value!);   // evict least-recent
+            }
+            return zip;
+        } catch (err) {
+            console.error(`Error reopening archive ${archivePath}:`, err);
+            return null;
+        }
     }
 
     public getFile(filePath: string): Buffer | null {
         const normalizedPath = filePath.toLowerCase().replace(/\\/g, '/');
         const entry = this.fileMap.get(normalizedPath);
         if (!entry) return null;
-        const zip = this.archives.get(entry.archive);
+        const zip = this.zipFor(entry.archive);
         return zip?.getEntry(entry.originalPath)?.getData() || null;
     }
 
