@@ -67,9 +67,15 @@ async function main() {
         total: files.length, decoded: 0, copied: 0, skippedExisting: 0,
         skippedConfig: 0, skippedPal: 0, unrecognized: [], failures: [],
     };
+    const outRootAbs = path.resolve(OUT_ROOT);
     let i = 0;
     for (const p of files) {
         if (++i % 2000 === 0) console.log(`${i}/${files.length}  decoded=${report.decoded} copied=${report.copied}`);
+        // archive entry names are untrusted input — keep every write inside data/assets/
+        if (!path.resolve(OUT_ROOT, p).startsWith(outRootAbs + path.sep)) {
+            report.failures.push({ path: p, error: 'path escapes output root' });
+            continue;
+        }
         const ext = extOf(p);
         if (CONFIG_EXTS.has(ext)) { report.skippedConfig++; continue; }
         if (ext === 'pal') {
