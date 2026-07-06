@@ -10,7 +10,9 @@ Requires original ZT1 `.ztd`/`.pal` files in `Gamefiles/` (not distributed).
 
 **Now: decompilation program** (`docs/superpowers/specs/2026-07-02-zt1-decompilation-design.md`) — recover ground-truth game rules and feed them into `web/src/core/`.
 - **Track A done** (2026-07-05): full-fidelity INI parser (`tools/lib/iniParser.ts`), config dump (`tools/dump_configs.ts`), schema doc (`docs/re/config-schema.md`), manifest (`tools/build_manifest.ts`). Derived output lands in `data/` + `docs/re/` (gitignored; schema doc force-added).
-- **Next**: A3 extraction widening (all categories in `data/manifest.json`), then Track B binary RE (Ghidra on `Gamefiles/zoo.exe`, scoped by schema-doc open questions).
+- **A3 done** (2026-07-06): full-corpus asset sweep. `tools/sweep_all.ts` runs `tools/sweep_assets.ts` as a subprocess-per-chunk pool (Jimp's PNG encode holds native memory only freed on process exit, so a single process OOMs the 328k-file corpus). Output in `data/assets/`: 55,311 graphics → 1.04M PNG frames + meta.json, 255k assets copied, 0 failures, coverage verified vs manifest. `.lle`/`ztatb`/`ztats`/`ztst` copied undecoded (terrain tiles — see `docs/re/archive-survey.md`).
+- **B1 done** (2026-07-06): Ghidra 12.1.2 (in `~/.local/opt/`, JDK 21) auto-analyzed `Gamefiles/zoo.exe` → `re/zoo.gpr`; `tools/ghidra/NameFromStrings.java` naming pass renamed 323 fns + indexed all 7,316 to `re/functions.csv`. Rerun the pass: `analyzeHeadless re zoo -process zoo.exe -noanalysis -scriptPath tools/ghidra -postScript NameFromStrings.java re/functions.csv`.
+- **Next**: Track B B2 — algorithm recovery from `zoo.exe`, scoped by the schema doc's open questions (satisfaction/happiness, guest AI, economy tick).
 
 ## Running the game
 

@@ -25,14 +25,17 @@ function chunks(): string[] {
     }
     const out: string[] = [];
     for (const t of tops) {
+        if (t.includes('.')) continue;   // loose root file (no '/'); handled by the roots pass
         if (t === 'animals') out.push(...speciesUnderAnimals);   // split the big one
         else out.push(t);
     }
     return out.sort();
 }
 
+const ROOTS = '__roots__';   // sentinel: sweep loose top-level files (no '/')
+
 async function main() {
-    const list = chunks();
+    const list = [...chunks(), ROOTS];
     console.log(`${list.length} chunks, concurrency ${CONCURRENCY}`);
     const script = path.join(__dirname, 'sweep_assets.ts');
     let next = 0, done = 0, failed = 0;
@@ -52,11 +55,12 @@ async function main() {
     async function worker(): Promise<void> {
         while (next < list.length) {
             const chunk = list[next++];
+            const arg = chunk === ROOTS ? '--roots-only' : `--only=${chunk}/`;
             try {
                 // async spawn (not execFileSync) so CONCURRENCY workers actually run
                 // in parallel — a sync call blocks the single JS thread and serializes
                 // the whole pool.
-                const { stdout } = await run('node', ['-r', 'ts-node/register', script, `--only=${chunk}/`], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+                const { stdout } = await run('node', ['-r', 'ts-node/register', script, arg], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
                 tally(stdout);
             } catch (e) {
                 failed++;

@@ -60,9 +60,11 @@ function copyVerbatim(am: ArchiveManager, p: string, report: any): void {
 
 async function main() {
     const only = process.argv.find(a => a.startsWith('--only='))?.slice('--only='.length);
+    const rootsOnly = process.argv.includes('--roots-only');   // loose top-level files (no '/')
     const am = new ArchiveManager('Gamefiles');
     let files = am.listFiles();
-    if (only) files = files.filter(f => f.startsWith(only));
+    if (rootsOnly) files = files.filter(f => !f.includes('/'));
+    else if (only) files = files.filter(f => f.startsWith(only));
     const report: any = {
         total: files.length, decoded: 0, copied: 0, skippedExisting: 0,
         skippedConfig: 0, skippedPal: 0, unrecognized: [], failures: [],
