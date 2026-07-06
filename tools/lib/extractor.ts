@@ -9,32 +9,45 @@ export interface Frame {
     image: Jimp;
 }
 
-export class Extractor {
-    public static decode(data: Buffer, palette: Color[]): Frame[] {
-        let offset = 0;
+export interface GraphicHeader {
+    speed: number;
+    palName: string;
+    frameCount: number;
+    hasBackground: boolean;
+    dataOffset: number;
+}
 
-        // Check for FATZ magic
-        const magic = data.toString('utf8', 0, 4);
+export class Extractor {
+    // Returns null when the buffer does not look like a ZT1 graphic.
+    public static readHeader(data: Buffer): GraphicHeader | null {
+        let offset = 0;
         let hasBackground = false;
-        if (magic === "FATZ") {
-            offset += 8;
+        if (data.length < 12) return null;
+        if (data.toString('utf8', 0, 4) === 'FATZ') {
+            offset = 8;
             hasBackground = data.readUInt8(offset) !== 0;
             offset += 1;
-        } else {
-            offset = 0;
         }
-
-        // Header
+        if (offset + 12 > data.length) return null;
         const speed = data.readUInt32LE(offset); offset += 4;
         const palNameSize = data.readUInt32LE(offset); offset += 4;
+        if (palNameSize <= 0 || palNameSize >= 260 || offset + palNameSize + 4 > data.length) return null;
         const palName = data.subarray(offset, offset + palNameSize).toString('utf8').replace(/\0/g, '');
         offset += palNameSize;
+        if (!/\.pal$/i.test(palName)) return null;
         const frameCount = data.readUInt32LE(offset); offset += 4;
+        if (frameCount > 20000) return null;
+        return { speed, palName, frameCount, hasBackground, dataOffset: offset };
+    }
+
+    public static decode(data: Buffer, palette: Color[]): Frame[] {
+        const header = Extractor.readHeader(data);
+        if (!header) return [];
+        const { frameCount, hasBackground } = header;
+        let offset = header.dataOffset;
 
         const totalFrames = hasBackground ? frameCount + 1 : frameCount;
         const frames: Frame[] = [];
-
-        console.log(`Extractor: totalFrames=${totalFrames}, starting offset=${offset}, bufferLength=${data.length}`);
 
         for (let i = 0; i < totalFrames; i++) {
             const frameStart = offset;

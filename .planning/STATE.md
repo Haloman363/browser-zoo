@@ -4,8 +4,8 @@
 **Status**: Milestone 1 (playable prototype) complete. Now executing the ZT1 faithful-reimplementation program (`docs/superpowers/specs/2026-07-02-zt1-decompilation-design.md`): recover ground-truth game rules from configs + binary, feed them into `web/src/core/`.
 
 - **Track A (config-first extraction) — complete** (merged to master 2026-07-05): full-fidelity INI parser, complete `.ai`/`.uca` config dump (`tools/dump_configs.ts` → `data/`), config schema doc (`docs/re/config-schema.md`), asset+config manifest (`tools/build_manifest.ts` → `data/manifest.json`).
-- **A3 widening — next**: extract PNGs/audio for every category the manifest lists (currently only animals are fully ripped).
-- **Track B (binary RE) — queued**: B1 Ghidra scaffold on `zoo.exe`, B2 algorithm recovery prioritized by the schema doc's "Open questions", B3 port into `web/src/core/`.
+- **A3 widening — complete** (2026-07-06): `tools/sweep_all.ts` (subprocess-per-chunk pool, memory-bounded) + `tools/sweep_assets.ts` rip the whole corpus into `data/assets/` — 55,311 graphics decoded to 1.04M PNG frames + per-graphic meta.json, 255k standard-format assets copied, 0 failures. Coverage verified against `data/manifest.json` (328,486 files fully accounted). See `docs/re/archive-survey.md` for the `.lle`/`ztatb` verdicts.
+- **Track B (binary RE) — in progress**: B1 done (2026-07-06) — Ghidra 12.1.2 auto-analyzed `zoo.exe` into `re/zoo.gpr`, string-reference naming pass renamed 323 functions, full 7,316-function index at `re/functions.csv` (`tools/ghidra/NameFromStrings.java`). Assert strings leak the original source tree (`c:\aqua\src\...`) so functions arrive module-grouped. Next: B2 algorithm recovery prioritized by the schema doc's "Open questions", B3 port into `web/src/core/`.
 
 ## Milestone 1 (complete)
 **Status**: A fully-featured, authentic Zoo Tycoon 1 simulation is playable in the browser.
