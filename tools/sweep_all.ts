@@ -1,6 +1,9 @@
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import * as path from 'path';
 import { ArchiveManager } from './lib/archive';
+
+const run = promisify(execFile);
 
 // Driver for sweep_assets.ts. One `sweep_assets --only=<chunk>` subprocess per
 // chunk, run in a small concurrent pool. Why subprocesses: Jimp's PNG encode
@@ -50,9 +53,12 @@ async function main() {
         while (next < list.length) {
             const chunk = list[next++];
             try {
-                const out = execFileSync('node', ['-r', 'ts-node/register', script, `--only=${chunk}/`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
-                tally(out);
-            } catch {
+                // async spawn (not execFileSync) so CONCURRENCY workers actually run
+                // in parallel — a sync call blocks the single JS thread and serializes
+                // the whole pool.
+                const { stdout } = await run('node', ['-r', 'ts-node/register', script, `--only=${chunk}/`], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+                tally(stdout);
+            } catch (e) {
                 failed++;
                 console.error(`chunk FAILED: ${chunk}`);
             }
